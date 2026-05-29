@@ -1,0 +1,55 @@
+{
+  "name": "redcatlog_backend",
+  "version": "1.0.0",
+  "description": "Backend API Beta para plataforma Red Mujeres",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "node prisma/seed.js",
+    "lint": "eslint src",
+    "format": "prettier --write ."
+  },
+  "keywords": [
+    "node",
+    "express",
+    "mysql",
+    "prisma",
+    "red-mujeres"
+  ],
+  "author": "Redcatlog Team",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "6.19.0",
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "~3.0.3",
+    "compression": "~1.8.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "~2.8.6",
+    "dotenv": "^16.4.7",
+    "envalid": "~8.1.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "~7.5.1",
+    "helmet": "~8.2.0",
+    "hpp": "~0.2.3",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "~1.10.1",
+    "multer": "^1.4.5-lts.1",
+    "winston": "~3.19.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "nodemon": "^3.1.9",
+    "prettier": "^3.4.2",
+    "prisma": "6.19.0"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  }
+}
