@@ -15,6 +15,13 @@ const {
 
 const router = express.Router();
 
+router.get(
+  '/me/status',
+  authMiddleware,
+  roleMiddleware('entrepreneur', 'emprendedora'),
+  entrepreneurController.getMyEntrepreneurStatus
+);
+
 router.post(
   '/',
   authMiddleware,

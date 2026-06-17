@@ -72,6 +72,16 @@ const getPublicEntrepreneurById = asyncHandler(async (req, res) => {
   return successResponse(res, 'Emprendedora pública obtenida correctamente.', result);
 });
 
+const getMyEntrepreneurStatus = asyncHandler(async (req, res) => {
+  const result = await entrepreneurService.getMyEntrepreneurStatus(req.user.sub);
+
+  const message = result.profileExists
+    ? 'Estado de perfil de emprendedora obtenido correctamente.'
+    : 'El usuario todavía no tiene perfil de emprendedora.';
+
+  return successResponse(res, message, result);
+});
+
 module.exports = {
   createMyProfile,
   getMyProfile,
@@ -83,4 +93,5 @@ module.exports = {
   updateEntrepreneurStatus,
   listPublicEntrepreneurs,
   getPublicEntrepreneurById,
+  getMyEntrepreneurStatus,
 };

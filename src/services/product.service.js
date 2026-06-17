@@ -6,15 +6,55 @@ const entrepreneurRepository = require('../repositories/entrepreneur.repository'
 const approvalRepository = require('../repositories/approval.repository');
 const auditRepository = require('../repositories/audit.repository');
 
+const VALID_BUSINESS_STATUSES_FOR_PRODUCTS = ['approved', 'published'];
+
+const idsAreEqual = (left, right) => {
+  return toStringId(left) === toStringId(right);
+};
+
+const normalizeProductBusiness = (business) => {
+  if (!business) return null;
+
+  const contactWhatsapp = business.contactWhatsapp ?? business.whatsapp ?? null;
+  const contactPhone = business.contactPhone ?? business.phone ?? null;
+  const contactEmail = business.contactEmail ?? business.email ?? null;
+  const addressText = business.addressText ?? business.address ?? null;
+
+  return {
+    id: toStringId(business.id),
+    name: business.name,
+    slug: business.slug,
+    description: business.description ?? null,
+    logoUrl: business.logoUrl ?? null,
+    bannerUrl: business.bannerUrl ?? null,
+
+    contactWhatsapp,
+    contactPhone,
+    contactEmail,
+    addressText,
+
+    // Aliases de compatibilidad para frontends anteriores.
+    whatsapp: business.whatsapp ?? contactWhatsapp,
+    phone: business.phone ?? contactPhone,
+    email: business.email ?? contactEmail,
+    address: business.address ?? addressText,
+
+    instagramUrl: business.instagramUrl ?? null,
+    facebookUrl: business.facebookUrl ?? null,
+    tiktokUrl: business.tiktokUrl ?? null,
+    websiteUrl: business.websiteUrl ?? null,
+  };
+};
+
 const normalizeProduct = (product) => ({
   id: toStringId(product.id),
   businessId: toStringId(product.businessId),
-  categoryId: toStringId(product.categoryId),
+  categoryId: product.categoryId ? toStringId(product.categoryId) : null,
   name: product.name,
   slug: product.slug,
   shortDescription: product.shortDescription,
   description: product.description,
-  price: product.price ? Number(product.price) : null,
+  price: product.price !== null && product.price !== undefined ? Number(product.price) : null,
   hasPrice: product.hasPrice,
   stock: product.stock,
   managesStock: product.managesStock,
@@ -22,7 +62,7 @@ const normalizeProduct = (product) => ({
   isFeatured: product.isFeatured,
   featuredOrder: product.featuredOrder,
   approvedAt: product.approvedAt,
-  approvedBy: toStringId(product.approvedBy),
+  approvedBy: product.approvedBy ? toStringId(product.approvedBy) : null,
   rejectedAt: product.rejectedAt,
   rejectionReason: product.rejectionReason,
   publishedAt: product.publishedAt,
@@ -35,13 +75,7 @@ const normalizeProduct = (product) => ({
         slug: product.category.slug,
       }
     : null,
-  business: product.business
-    ? {
-        id: toStringId(product.business.id),
-        name: product.business.name,
-        slug: product.business.slug,
-      }
-    : null,
+  business: normalizeProductBusiness(product.business),
   images: product.images
     ? product.images.map((img) => ({
         id: toStringId(img.id),
@@ -75,12 +109,40 @@ const cleanPayload = (payload) => {
   return data;
 };
 
-const assertBusinessOwnership = async (userId, businessId) => {
+const getEntrepreneurByUserIdOrFail = async (userId) => {
   const entrepreneur = await entrepreneurRepository.findEntrepreneurByUserId(userId);
+
+  if (!entrepreneur) {
+    throw new AppError('Primero debes crear tu perfil de emprendedora.', 409);
+  }
+
+  return entrepreneur;
+};
+
+const assertBusinessOwnership = async (userId, businessId) => {
+  const entrepreneur = await getEntrepreneurByUserIdOrFail(userId);
   const business = await businessRepository.findBusinessById(businessId);
 
-  if (!entrepreneur || !business || business.entrepreneurId !== entrepreneur.id) {
-    throw new AppError('Emprendimiento no encontrado o no pertenece al usuario.', 404);
+  if (!business) {
+    throw new AppError('Emprendimiento no encontrado.', 404);
+  }
+
+  if (!idsAreEqual(business.entrepreneurId, entrepreneur.id)) {
+    throw new AppError('No tienes permisos para usar este emprendimiento.', 403);
+  }
+
+  return { entrepreneur, business };
+};
+
+const assertCanCreateProduct = async (userId, businessId) => {
+  const { entrepreneur, business } = await assertBusinessOwnership(userId, businessId);
+
+  if (entrepreneur.status !== 'approved') {
+    throw new AppError('Tu perfil debe ser aprobado antes de crear productos.', 403);
+  }
+
+  if (!VALID_BUSINESS_STATUSES_FOR_PRODUCTS.includes(business.status)) {
+    throw new AppError('Primero debes tener un emprendimiento aprobado para crear productos.', 403);
   }
 
   return { entrepreneur, business };
@@ -99,7 +161,7 @@ const assertProductOwnership = async (userId, productId) => {
 };
 
 const createMyProduct = async (userId, payload, req) => {
-  await assertBusinessOwnership(userId, payload.businessId);
+  await assertCanCreateProduct(userId, payload.businessId);
 
   const product = await productRepository.createProduct({
     ...cleanPayload(payload),
@@ -124,7 +186,7 @@ const listMyProducts = async (userId) => {
   const entrepreneur = await entrepreneurRepository.findEntrepreneurByUserId(userId);
 
   if (!entrepreneur) {
-    throw new AppError('No tienes perfil de emprendedora creado.', 404);
+    return [];
   }
 
   const where = {
@@ -365,7 +427,7 @@ const deleteImage = async (userId, productId, imageId) => {
 
   const image = await productRepository.findProductImageById(imageId);
 
-  if (!image || image.productId !== BigInt(productId)) {
+  if (!image || !idsAreEqual(image.productId, productId)) {
     throw new AppError('Imagen no encontrada.', 404);
   }
 

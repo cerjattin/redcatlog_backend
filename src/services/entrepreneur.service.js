@@ -4,6 +4,65 @@ const entrepreneurRepository = require('../repositories/entrepreneur.repository'
 const approvalRepository = require('../repositories/approval.repository');
 const auditRepository = require('../repositories/audit.repository');
 
+const ADMIN_VISIBLE_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'inactive'];
+
+const normalizeUser = (user) => {
+  if (!user) return null;
+
+  return {
+    id: toStringId(user.id),
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    phone: user.phone,
+    whatsapp: user.whatsapp,
+    profilePhotoUrl: user.profilePhotoUrl,
+    bio: user.bio,
+    city: user.city,
+    department: user.department,
+    country: user.country,
+    status: user.status,
+    role: user.role
+      ? {
+          id: toStringId(user.role.id),
+          name: user.role.name,
+          description: user.role.description,
+        }
+      : null,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+};
+
+const normalizeBusinessStatus = (business) => {
+  if (!business) return null;
+
+  return {
+    id: toStringId(business.id),
+    name: business.name,
+    slug: business.slug,
+    status: business.status,
+    approvedAt: business.approvedAt,
+    publishedAt: business.publishedAt,
+    createdAt: business.createdAt,
+    updatedAt: business.updatedAt,
+  };
+};
+
+const normalizeEntrepreneurStatus = (entrepreneur) => {
+  if (!entrepreneur) return null;
+
+  return {
+    id: toStringId(entrepreneur.id),
+    status: entrepreneur.status,
+    approvedAt: entrepreneur.approvedAt,
+    rejectedAt: entrepreneur.rejectedAt,
+    rejectionReason: entrepreneur.rejectionReason,
+    createdAt: entrepreneur.createdAt,
+    updatedAt: entrepreneur.updatedAt,
+  };
+};
+
 const normalizeEntrepreneur = (entrepreneur) => {
   if (!entrepreneur) return null;
 
@@ -20,46 +79,95 @@ const normalizeEntrepreneur = (entrepreneur) => {
     country: entrepreneur.country,
     status: entrepreneur.status,
     approvedAt: entrepreneur.approvedAt,
-    approvedBy: toStringId(entrepreneur.approvedBy),
+    approvedBy: entrepreneur.approvedBy ? toStringId(entrepreneur.approvedBy) : null,
     rejectedAt: entrepreneur.rejectedAt,
     rejectionReason: entrepreneur.rejectionReason,
     createdAt: entrepreneur.createdAt,
     updatedAt: entrepreneur.updatedAt,
-    user: entrepreneur.user
-      ? {
-          id: toStringId(entrepreneur.user.id),
-          firstName: entrepreneur.user.firstName,
-          lastName: entrepreneur.user.lastName,
-          email: entrepreneur.user.email,
-          phone: entrepreneur.user.phone,
-          whatsapp: entrepreneur.user.whatsapp,
-          city: entrepreneur.user.city,
-          department: entrepreneur.user.department,
-          status: entrepreneur.user.status,
-          role: entrepreneur.user.role
-            ? {
-                id: toStringId(entrepreneur.user.role.id),
-                name: entrepreneur.user.role.name,
-              }
-            : null,
-        }
-      : null,
-    businesses: entrepreneur.businesses
-      ? entrepreneur.businesses.map((business) => ({
-          id: toStringId(business.id),
-          name: business.name,
-          slug: business.slug,
-          status: business.status,
-        }))
-      : [],
+    user: normalizeUser(entrepreneur.user),
+    approvedByUser: normalizeUser(entrepreneur.approvedByUser),
+    businesses: entrepreneur.businesses ? entrepreneur.businesses.map(normalizeBusinessStatus) : [],
+  };
+};
+
+const getMyEntrepreneurStatus = async (userId) => {
+  const entrepreneur = await entrepreneurRepository.findEntrepreneurByUserId(userId);
+
+  if (!entrepreneur) {
+    return {
+      profileExists: false,
+      entrepreneur: null,
+      business: null,
+      businesses: [],
+      canCreateProfile: true,
+      canEditProfile: false,
+      canCreateBusiness: false,
+      canCreateProducts: false,
+      nextAction: 'create_entrepreneur_profile',
+    };
+  }
+
+  const businesses = entrepreneur.businesses || [];
+
+  const enabledBusiness = businesses.find((business) =>
+    ['approved', 'published'].includes(business.status)
+  );
+
+  const firstBusiness = enabledBusiness || businesses[0] || null;
+
+  const isProfileApproved = entrepreneur.status === 'approved';
+  const canEditProfile = ['draft', 'pending_review', 'rejected'].includes(entrepreneur.status);
+  const canCreateBusiness = isProfileApproved;
+  const canCreateProducts = isProfileApproved && Boolean(enabledBusiness);
+
+  let nextAction = 'wait_admin_approval';
+
+  if (entrepreneur.status === 'draft') {
+    nextAction = 'complete_entrepreneur_profile';
+  }
+
+  if (entrepreneur.status === 'pending_review') {
+    nextAction = 'wait_admin_approval';
+  }
+
+  if (entrepreneur.status === 'rejected') {
+    nextAction = 'edit_entrepreneur_profile';
+  }
+
+  if (entrepreneur.status === 'inactive') {
+    nextAction = 'contact_admin';
+  }
+
+  if (isProfileApproved && businesses.length === 0) {
+    nextAction = 'create_business';
+  }
+
+  if (isProfileApproved && businesses.length > 0 && !enabledBusiness) {
+    nextAction = 'wait_business_approval';
+  }
+
+  if (canCreateProducts) {
+    nextAction = 'manage_products';
+  }
+
+  return {
+    profileExists: true,
+    entrepreneur: normalizeEntrepreneurStatus(entrepreneur),
+    business: normalizeBusinessStatus(firstBusiness),
+    businesses: businesses.map(normalizeBusinessStatus),
+    canCreateProfile: false,
+    canEditProfile,
+    canCreateBusiness,
+    canCreateProducts,
+    nextAction,
   };
 };
 
 const createMyProfile = async (userId, payload, req) => {
-  const existing = await entrepreneurRepository.findEntrepreneurByUserId(userId);
+  const existingEntrepreneur = await entrepreneurRepository.findEntrepreneurByUserId(userId);
 
-  if (existing) {
-    throw new AppError('Este usuario ya tiene perfil de emprendedora.', 409);
+  if (existingEntrepreneur) {
+    throw new AppError('El usuario ya tiene un perfil de emprendedora.', 409);
   }
 
   const entrepreneur = await entrepreneurRepository.createEntrepreneur({
@@ -72,7 +180,7 @@ const createMyProfile = async (userId, payload, req) => {
     city: payload.city || null,
     department: payload.department || null,
     country: payload.country || 'Colombia',
-    status: 'draft',
+    status: 'pending_review',
   });
 
   await auditRepository.createAuditLog({
@@ -119,12 +227,17 @@ const updateMyProfile = async (userId, payload, req) => {
     city: payload.city,
     department: payload.department,
     country: payload.country,
-    status: payload.status,
   };
 
   Object.keys(allowedData).forEach((key) => {
     if (allowedData[key] === undefined) delete allowedData[key];
   });
+
+  if (['draft', 'rejected'].includes(entrepreneur.status)) {
+    allowedData.status = 'pending_review';
+    allowedData.rejectedAt = null;
+    allowedData.rejectionReason = null;
+  }
 
   const updated = await entrepreneurRepository.updateEntrepreneurById(entrepreneur.id, allowedData);
 
@@ -135,7 +248,14 @@ const updateMyProfile = async (userId, payload, req) => {
     entityId: entrepreneur.id,
     ipAddress: req.ip || null,
     userAgent: req.headers['user-agent'] || null,
-    oldValues: entrepreneur,
+    oldValues: {
+      status: entrepreneur.status,
+      documentType: entrepreneur.documentType,
+      documentNumber: entrepreneur.documentNumber,
+      city: entrepreneur.city,
+      department: entrepreneur.department,
+      country: entrepreneur.country,
+    },
     newValues: allowedData,
     description: 'Actualización de perfil de emprendedora.',
   });
@@ -146,7 +266,14 @@ const updateMyProfile = async (userId, payload, req) => {
 const buildWhere = ({ status, city, department, search }) => {
   const where = {};
 
-  if (status) where.status = status;
+  if (status) {
+    where.status = status;
+  } else {
+    where.status = {
+      in: ADMIN_VISIBLE_STATUSES,
+    };
+  }
+
   if (city) where.city = { contains: city };
   if (department) where.department = { contains: department };
 
@@ -355,4 +482,5 @@ module.exports = {
   reject,
   updateStatus,
   listPublicEntrepreneurs,
+  getMyEntrepreneurStatus,
 };

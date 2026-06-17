@@ -38,14 +38,23 @@ const findBusinessBySlug = async (slug) => {
   });
 };
 
-const findBusinessByEntrepreneurId = async (entrepreneurId) => {
+const findBusinessesByEntrepreneurId = async (entrepreneurId) => {
   return prisma.business.findMany({
     where: {
       entrepreneurId: BigInt(entrepreneurId),
     },
+    orderBy: {
+      createdAt: 'desc',
+    },
     include: baseInclude,
   });
 };
+
+/*
+ * Alias temporal para compatibilidad con servicios existentes.
+ * Algunos servicios pueden estar usando el nombre singular.
+ */
+const findBusinessByEntrepreneurId = findBusinessesByEntrepreneurId;
 
 const createBusiness = async (data) => {
   return prisma.business.create({
@@ -69,11 +78,9 @@ const listBusinesses = async ({ skip, take, where }) => {
     where,
     skip,
     take,
-
     orderBy: {
       createdAt: 'desc',
     },
-
     include: baseInclude,
   });
 };
@@ -87,6 +94,7 @@ const countBusinesses = async (where) => {
 module.exports = {
   findBusinessById,
   findBusinessBySlug,
+  findBusinessesByEntrepreneurId,
   findBusinessByEntrepreneurId,
   createBusiness,
   updateBusinessById,

@@ -7,22 +7,26 @@ const baseInclude = {
     },
   },
   approvedByUser: true,
-  businesses: true,
-};
-
-const findEntrepreneurByUserId = async (userId) => {
-  return prisma.entrepreneur.findUnique({
-    where: {
-      userId: BigInt(userId),
+  businesses: {
+    orderBy: {
+      createdAt: 'desc',
     },
-    include: baseInclude,
-  });
+  },
 };
 
 const findEntrepreneurById = async (id) => {
   return prisma.entrepreneur.findUnique({
     where: {
       id: BigInt(id),
+    },
+    include: baseInclude,
+  });
+};
+
+const findEntrepreneurByUserId = async (userId) => {
+  return prisma.entrepreneur.findFirst({
+    where: {
+      userId: BigInt(userId),
     },
     include: baseInclude,
   });
