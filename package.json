@@ -3,12 +3,18 @@
   "version": "1.0.0",
   "description": "Backend API Beta para plataforma Red Mujeres",
   "main": "src/server.js",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
     "prisma:seed": "node prisma/seed.js",
+    "prisma:push": "prisma db push",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "postinstall": "prisma generate",
     "lint": "eslint src",
     "format": "prettier --write ."
   },
@@ -24,7 +30,6 @@
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "6.19.0",
-    "bcrypt": "^5.1.1",
     "bcryptjs": "~3.0.3",
     "compression": "~1.8.1",
     "cookie-parser": "^1.4.7",
@@ -51,8 +56,5 @@
   },
   "prisma": {
     "seed": "node prisma/seed.js"
-  },
-  "engines": {
-    "node": "20.x"
   }
 }

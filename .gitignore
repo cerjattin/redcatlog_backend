@@ -1,6 +1,9 @@
 node_modules
 .env
+.env.*
+!.env.example
 .DS_Store
+
 dist
 build
 coverage
@@ -10,11 +13,22 @@ yarn-error.log
 logs/*
 !logs/.gitkeep
 
+# Prisma Client debe generarse en node_modules/.prisma/client con npx prisma generate.
+# No versionar clientes generados ni query engines del sistema local.
+src/generated/
+
+# Uploads de usuario no deben ir al repo.
 src/uploads/*
 !src/uploads/.gitkeep
-!src/generated/prisma
+!src/uploads/products/
 !src/uploads/products/.gitkeep
+!src/uploads/businesses/
+!src/uploads/businesses/.gitkeep
+!src/uploads/ventures/
 !src/uploads/ventures/.gitkeep
+!src/uploads/gallery/
 !src/uploads/gallery/.gitkeep
+!src/uploads/profiles/
 !src/uploads/profiles/.gitkeep
-
+!src/uploads/cms/
+!src/uploads/cms/.gitkeep

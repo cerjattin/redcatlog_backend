@@ -1,7 +1,7 @@
-const bcrypt = require('bcrypt');
-const { PrismaClient } = require('@prisma/client');
+require('dotenv').config();
 
-const prisma = new PrismaClient();
+const bcrypt = require('bcryptjs');
+const prisma = require('../src/config/prisma');
 
 async function main() {
   console.log('Iniciando seed...');
@@ -25,23 +25,14 @@ async function main() {
     update: {},
     create: {
       roleId: adminRole.id,
-
       firstName: 'Administrador',
-
       lastName: 'Red Mujeres',
-
       email: 'admin@redmujeres.com',
-
       passwordHash,
-
       status: 'active',
-
       country: 'Colombia',
-
       city: 'Barranquilla',
-
       department: 'Atlántico',
-
       emailVerifiedAt: new Date(),
     },
   });
