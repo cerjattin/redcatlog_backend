@@ -1,5 +1,5 @@
 {
-  "name": "redcatlog_backend",
+  "name": "Api.REDMUEMMA",
   "version": "1.0.0",
   "description": "Backend API Beta para plataforma Red Mujeres",
   "main": "src/server.js",
@@ -51,5 +51,8 @@
   },
   "prisma": {
     "seed": "node prisma/seed.js"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }
