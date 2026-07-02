@@ -3,27 +3,54 @@ const { prisma } = require('../config/prisma');
 const adminOverview = async () => {
   const [
     totalUsers,
+    totalAdmins,
+    totalEditors,
+
     totalEntrepreneurs,
-    totalBusinesses,
-    totalProducts,
-
+    draftEntrepreneurs,
     pendingEntrepreneurs,
-    pendingBusinesses,
+    approvedEntrepreneurs,
+    rejectedEntrepreneurs,
+    inactiveEntrepreneurs,
+    featuredEntrepreneurs,
+
+    totalProducts,
+    draftProducts,
     pendingProducts,
-
-    publishedBusinesses,
     publishedProducts,
-
-    featuredBusinesses,
+    rejectedProducts,
+    inactiveProducts,
     featuredProducts,
+
+    totalCategories,
+    activeCategories,
+    inactiveCategories,
   ] = await Promise.all([
     prisma.user.count(),
 
+    prisma.user.count({
+      where: {
+        role: {
+          name: 'admin',
+        },
+      },
+    }),
+
+    prisma.user.count({
+      where: {
+        role: {
+          name: 'editor',
+        },
+      },
+    }),
+
     prisma.entrepreneur.count(),
 
-    prisma.business.count(),
-
-    prisma.product.count(),
+    prisma.entrepreneur.count({
+      where: {
+        status: 'draft',
+      },
+    }),
 
     prisma.entrepreneur.count({
       where: {
@@ -31,7 +58,39 @@ const adminOverview = async () => {
       },
     }),
 
-    prisma.business.count({
+    prisma.entrepreneur.count({
+      where: {
+        status: 'approved',
+      },
+    }),
+
+    prisma.entrepreneur.count({
+      where: {
+        status: 'rejected',
+      },
+    }),
+
+    prisma.entrepreneur.count({
+      where: {
+        status: 'inactive',
+      },
+    }),
+
+    prisma.entrepreneur.count({
+      where: {
+        isFeatured: true,
+      },
+    }),
+
+    prisma.product.count(),
+
+    prisma.product.count({
+      where: {
+        status: 'draft',
+      },
+    }),
+
+    prisma.product.count({
       where: {
         status: 'pending_review',
       },
@@ -39,131 +98,149 @@ const adminOverview = async () => {
 
     prisma.product.count({
       where: {
-        status: 'pending_review',
-      },
-    }),
-
-    prisma.business.count({
-      where: {
         status: 'published',
       },
     }),
 
     prisma.product.count({
       where: {
-        status: 'published',
+        status: 'rejected',
       },
     }),
 
-    prisma.business.count({
+    prisma.product.count({
       where: {
-        isFeatured: true,
+        status: 'inactive',
       },
     }),
 
     prisma.product.count({
       where: {
         isFeatured: true,
+      },
+    }),
+
+    prisma.category.count(),
+
+    prisma.category.count({
+      where: {
+        isActive: true,
+      },
+    }),
+
+    prisma.category.count({
+      where: {
+        isActive: false,
       },
     }),
   ]);
 
   return {
-    totalUsers,
-    totalEntrepreneurs,
-    totalBusinesses,
-    totalProducts,
+    users: {
+      total: totalUsers,
+      admins: totalAdmins,
+      editors: totalEditors,
+    },
 
-    pendingEntrepreneurs,
-    pendingBusinesses,
-    pendingProducts,
+    entrepreneurs: {
+      total: totalEntrepreneurs,
+      draft: draftEntrepreneurs,
+      pending: pendingEntrepreneurs,
+      approved: approvedEntrepreneurs,
+      rejected: rejectedEntrepreneurs,
+      inactive: inactiveEntrepreneurs,
+      featured: featuredEntrepreneurs,
+    },
 
-    publishedBusinesses,
-    publishedProducts,
+    products: {
+      total: totalProducts,
+      draft: draftProducts,
+      pending: pendingProducts,
+      published: publishedProducts,
+      rejected: rejectedProducts,
+      inactive: inactiveProducts,
+      featured: featuredProducts,
+    },
 
-    featuredBusinesses,
-    featuredProducts,
+    categories: {
+      total: totalCategories,
+      active: activeCategories,
+      inactive: inactiveCategories,
+    },
   };
 };
 
 const entrepreneurOverview = async (entrepreneurId) => {
+  const entrepreneurIdBigInt = BigInt(entrepreneurId);
+
   const [
-    myBusinesses,
     myProducts,
-
-    draftBusinesses,
-    publishedBusinesses,
-
     draftProducts,
     pendingProducts,
     publishedProducts,
+    rejectedProducts,
+    inactiveProducts,
+    featuredProducts,
   ] = await Promise.all([
-    prisma.business.count({
+    prisma.product.count({
       where: {
-        entrepreneurId: BigInt(entrepreneurId),
+        entrepreneurId: entrepreneurIdBigInt,
       },
     }),
 
     prisma.product.count({
       where: {
-        business: {
-          entrepreneurId: BigInt(entrepreneurId),
-        },
-      },
-    }),
-
-    prisma.business.count({
-      where: {
-        entrepreneurId: BigInt(entrepreneurId),
-        status: 'draft',
-      },
-    }),
-
-    prisma.business.count({
-      where: {
-        entrepreneurId: BigInt(entrepreneurId),
-        status: 'published',
-      },
-    }),
-
-    prisma.product.count({
-      where: {
-        business: {
-          entrepreneurId: BigInt(entrepreneurId),
-        },
+        entrepreneurId: entrepreneurIdBigInt,
         status: 'draft',
       },
     }),
 
     prisma.product.count({
       where: {
-        business: {
-          entrepreneurId: BigInt(entrepreneurId),
-        },
+        entrepreneurId: entrepreneurIdBigInt,
         status: 'pending_review',
       },
     }),
 
     prisma.product.count({
       where: {
-        business: {
-          entrepreneurId: BigInt(entrepreneurId),
-        },
+        entrepreneurId: entrepreneurIdBigInt,
         status: 'published',
+      },
+    }),
+
+    prisma.product.count({
+      where: {
+        entrepreneurId: entrepreneurIdBigInt,
+        status: 'rejected',
+      },
+    }),
+
+    prisma.product.count({
+      where: {
+        entrepreneurId: entrepreneurIdBigInt,
+        status: 'inactive',
+      },
+    }),
+
+    prisma.product.count({
+      where: {
+        entrepreneurId: entrepreneurIdBigInt,
+        isFeatured: true,
       },
     }),
   ]);
 
   return {
-    myBusinesses,
-    myProducts,
-
-    draftBusinesses,
-    publishedBusinesses,
-
-    draftProducts,
-    pendingProducts,
-    publishedProducts,
+    products: {
+      total: myProducts,
+      draft: draftProducts,
+      pending: pendingProducts,
+      published: publishedProducts,
+      rejected: rejectedProducts,
+      inactive: inactiveProducts,
+      featured: featuredProducts,
+    },
   };
 };
 

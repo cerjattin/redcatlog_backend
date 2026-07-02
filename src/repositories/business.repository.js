@@ -1,95 +1,33 @@
-const { prisma } = require('../config/prisma');
+const createLegacyBusinessError = () => {
+  const error = new Error(
+    'El módulo de negocios/emprendimientos fue desactivado. En REDMUEMMA los productos pertenecen directamente a una emprendedora.'
+  );
 
-const baseInclude = {
-  entrepreneur: {
-    include: {
-      user: {
-        include: {
-          role: true,
-        },
-      },
-    },
-  },
+  error.statusCode = 410;
+  error.code = 'BUSINESSES_MODULE_DISABLED';
 
-  mainCategory: true,
-
-  approvedByUser: true,
-
-  socialLinks: true,
-
-  products: true,
+  return error;
 };
 
-const findBusinessById = async (id) => {
-  return prisma.business.findUnique({
-    where: {
-      id: BigInt(id),
-    },
-    include: baseInclude,
-  });
+const disabledBusinessRepositoryMethod = async () => {
+  throw createLegacyBusinessError();
 };
 
-const findBusinessBySlug = async (slug) => {
-  return prisma.business.findUnique({
-    where: {
-      slug,
-    },
-    include: baseInclude,
-  });
-};
+const findBusinessById = disabledBusinessRepositoryMethod;
 
-const findBusinessesByEntrepreneurId = async (entrepreneurId) => {
-  return prisma.business.findMany({
-    where: {
-      entrepreneurId: BigInt(entrepreneurId),
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-    include: baseInclude,
-  });
-};
+const findBusinessBySlug = disabledBusinessRepositoryMethod;
 
-/*
- * Alias temporal para compatibilidad con servicios existentes.
- * Algunos servicios pueden estar usando el nombre singular.
- */
-const findBusinessByEntrepreneurId = findBusinessesByEntrepreneurId;
+const findBusinessesByEntrepreneurId = disabledBusinessRepositoryMethod;
 
-const createBusiness = async (data) => {
-  return prisma.business.create({
-    data,
-    include: baseInclude,
-  });
-};
+const findBusinessByEntrepreneurId = disabledBusinessRepositoryMethod;
 
-const updateBusinessById = async (id, data) => {
-  return prisma.business.update({
-    where: {
-      id: BigInt(id),
-    },
-    data,
-    include: baseInclude,
-  });
-};
+const createBusiness = disabledBusinessRepositoryMethod;
 
-const listBusinesses = async ({ skip, take, where }) => {
-  return prisma.business.findMany({
-    where,
-    skip,
-    take,
-    orderBy: {
-      createdAt: 'desc',
-    },
-    include: baseInclude,
-  });
-};
+const updateBusinessById = disabledBusinessRepositoryMethod;
 
-const countBusinesses = async (where) => {
-  return prisma.business.count({
-    where,
-  });
-};
+const listBusinesses = disabledBusinessRepositoryMethod;
+
+const countBusinesses = disabledBusinessRepositoryMethod;
 
 module.exports = {
   findBusinessById,
