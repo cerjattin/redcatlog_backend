@@ -2,51 +2,75 @@ const entrepreneurService = require('../services/entrepreneur.service');
 const { successResponse } = require('../utils/response.util');
 const { asyncHandler } = require('../utils/async-handler.util');
 
-const createMyProfile = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.createMyProfile(req.user.sub, req.validated.body, req);
-  return successResponse(res, 'Perfil de emprendedora creado correctamente.', result, 201);
-});
+const getBody = (req) => req.validated?.body || req.body || {};
+const getQuery = (req) => req.validated?.query || req.query || {};
+const getParams = (req) => req.validated?.params || req.params || {};
 
-const getMyProfile = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.getMyProfile(req.user.sub);
-  return successResponse(res, 'Perfil de emprendedora obtenido correctamente.', result);
-});
+const createEntrepreneur = asyncHandler(async (req, res) => {
+  const result = await entrepreneurService.createEntrepreneur(getBody(req), req);
 
-const updateMyProfile = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.updateMyProfile(req.user.sub, req.validated.body, req);
-  return successResponse(res, 'Perfil de emprendedora actualizado correctamente.', result);
+  return successResponse(res, 'Emprendedora creada correctamente.', result, 201);
 });
 
 const listEntrepreneurs = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.listEntrepreneurs(req.validated.query);
+  const result = await entrepreneurService.listEntrepreneurs(getQuery(req));
+
   return successResponse(res, 'Emprendedoras obtenidas correctamente.', result);
 });
 
 const getEntrepreneurById = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.getById(req.validated.params.id);
+  const { id } = getParams(req);
+
+  const result = await entrepreneurService.getEntrepreneurById(id);
+
   return successResponse(res, 'Emprendedora obtenida correctamente.', result);
 });
 
+const getEntrepreneurBySlug = asyncHandler(async (req, res) => {
+  const { slug } = getParams(req);
+
+  const result = await entrepreneurService.getEntrepreneurBySlug(slug);
+
+  return successResponse(res, 'Emprendedora obtenida correctamente.', result);
+});
+
+const updateEntrepreneur = asyncHandler(async (req, res) => {
+  const { id } = getParams(req);
+
+  const result = await entrepreneurService.updateEntrepreneur(id, getBody(req), req);
+
+  return successResponse(res, 'Emprendedora actualizada correctamente.', result);
+});
+
 const approveEntrepreneur = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.approve(req.validated.params.id, req.user.sub, req);
-  return successResponse(res, 'Perfil de emprendedora aprobado correctamente.', result);
+  const { id } = getParams(req);
+
+  const result = await entrepreneurService.approveEntrepreneur(id, req.user.sub, req);
+
+  return successResponse(res, 'Emprendedora aprobada correctamente.', result);
 });
 
 const rejectEntrepreneur = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.reject(
-    req.validated.params.id,
+  const { id } = getParams(req);
+  const { rejectionReason } = getBody(req);
+
+  const result = await entrepreneurService.rejectEntrepreneur(
+    id,
     req.user.sub,
-    req.validated.body.rejectionReason,
+    rejectionReason,
     req
   );
 
-  return successResponse(res, 'Perfil de emprendedora rechazado correctamente.', result);
+  return successResponse(res, 'Emprendedora rechazada correctamente.', result);
 });
 
 const updateEntrepreneurStatus = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.updateStatus(
-    req.validated.params.id,
-    req.validated.body.status,
+  const { id } = getParams(req);
+  const { status } = getBody(req);
+
+  const result = await entrepreneurService.updateEntrepreneurStatus(
+    id,
+    status,
     req.user.sub,
     req
   );
@@ -54,44 +78,48 @@ const updateEntrepreneurStatus = asyncHandler(async (req, res) => {
   return successResponse(res, 'Estado de emprendedora actualizado correctamente.', result);
 });
 
+const updateEntrepreneurFeatured = asyncHandler(async (req, res) => {
+  const { id } = getParams(req);
+
+  const result = await entrepreneurService.updateEntrepreneurFeatured(id, getBody(req), req);
+
+  return successResponse(res, 'Destacado de emprendedora actualizado correctamente.', result);
+});
+
 const listPublicEntrepreneurs = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.listPublicEntrepreneurs(req.query);
+  const result = await entrepreneurService.listPublicEntrepreneurs(getQuery(req));
+
   return successResponse(res, 'Emprendedoras públicas obtenidas correctamente.', result);
 });
 
 const getPublicEntrepreneurById = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.getById(req.params.id);
+  const { id } = getParams(req);
 
-  if (result.status !== 'approved') {
-    return res.status(404).json({
-      success: false,
-      message: 'Emprendedora no disponible públicamente.',
-    });
-  }
+  const result = await entrepreneurService.getPublicEntrepreneurById(id);
 
   return successResponse(res, 'Emprendedora pública obtenida correctamente.', result);
 });
 
-const getMyEntrepreneurStatus = asyncHandler(async (req, res) => {
-  const result = await entrepreneurService.getMyEntrepreneurStatus(req.user.sub);
+const getPublicEntrepreneurBySlug = asyncHandler(async (req, res) => {
+  const { slug } = getParams(req);
 
-  const message = result.profileExists
-    ? 'Estado de perfil de emprendedora obtenido correctamente.'
-    : 'El usuario todavía no tiene perfil de emprendedora.';
+  const result = await entrepreneurService.getPublicEntrepreneurBySlug(slug);
 
-  return successResponse(res, message, result);
+  return successResponse(res, 'Emprendedora pública obtenida correctamente.', result);
 });
 
 module.exports = {
-  createMyProfile,
-  getMyProfile,
-  updateMyProfile,
+  createEntrepreneur,
   listEntrepreneurs,
   getEntrepreneurById,
+  getEntrepreneurBySlug,
+  updateEntrepreneur,
   approveEntrepreneur,
   rejectEntrepreneur,
   updateEntrepreneurStatus,
+  updateEntrepreneurFeatured,
+
   listPublicEntrepreneurs,
   getPublicEntrepreneurById,
-  getMyEntrepreneurStatus,
+  getPublicEntrepreneurBySlug,
 };

@@ -12,6 +12,7 @@ router.get('/galleries', mediaController.listPublicGalleries);
 router.get('/galleries/:slug', mediaController.getPublicGalleryBySlug);
 
 router.get('/entrepreneurs', entrepreneurController.listPublicEntrepreneurs);
+router.get('/entrepreneurs/slug/:slug', entrepreneurController.getPublicEntrepreneurBySlug);
 router.get('/entrepreneurs/:id', entrepreneurController.getPublicEntrepreneurById);
 
 router.get('/products', productController.listPublicProducts);

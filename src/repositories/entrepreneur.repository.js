@@ -55,6 +55,18 @@ const findEntrepreneurBySlug = async (slug) => {
   });
 };
 
+const findEntrepreneurByDocument = async (documentType, documentNumber) => {
+  if (!documentType || !documentNumber) return null;
+
+  return prisma.entrepreneur.findFirst({
+    where: {
+      documentType,
+      documentNumber,
+    },
+    include: baseInclude,
+  });
+};
+
 const createEntrepreneur = async (data) => {
   return prisma.entrepreneur.create({
     data,
@@ -72,12 +84,12 @@ const updateEntrepreneurById = async (id, data) => {
   });
 };
 
-const listEntrepreneurs = async ({ skip, take, where }) => {
+const listEntrepreneurs = async ({ skip, take, where, orderBy }) => {
   return prisma.entrepreneur.findMany({
     where,
     skip,
     take,
-    orderBy: {
+    orderBy: orderBy || {
       createdAt: 'desc',
     },
     include: baseInclude,
@@ -91,9 +103,11 @@ const countEntrepreneurs = async (where) => {
 };
 
 module.exports = {
-  findEntrepreneurByUserId,
+  baseInclude,
   findEntrepreneurById,
+  findEntrepreneurByUserId,
   findEntrepreneurBySlug,
+  findEntrepreneurByDocument,
   createEntrepreneur,
   updateEntrepreneurById,
   listEntrepreneurs,

@@ -1,70 +1,70 @@
 const express = require('express');
 
 const entrepreneurController = require('../controllers/entrepreneur.controller');
+
 const { authMiddleware } = require('../middlewares/auth.middleware');
 const { roleMiddleware } = require('../middlewares/role.middleware');
 const { validate } = require('../middlewares/validate.middleware');
+
 const {
   createEntrepreneurSchema,
   updateEntrepreneurSchema,
   listEntrepreneursSchema,
   entrepreneurIdParamSchema,
+  entrepreneurSlugParamSchema,
   rejectEntrepreneurSchema,
   updateEntrepreneurStatusSchema,
+  updateFeaturedEntrepreneurSchema,
 } = require('../schemas/entrepreneur.schema');
 
 const router = express.Router();
 
+const adminOrEditor = roleMiddleware('admin', 'editor');
+
 router.get(
-  '/me/status',
+  '/',
   authMiddleware,
-  roleMiddleware('entrepreneur', 'emprendedora'),
-  entrepreneurController.getMyEntrepreneurStatus
+  adminOrEditor,
+  validate(listEntrepreneursSchema),
+  entrepreneurController.listEntrepreneurs
 );
 
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware('entrepreneur', 'emprendedora'),
+  adminOrEditor,
   validate(createEntrepreneurSchema),
-  entrepreneurController.createMyProfile
+  entrepreneurController.createEntrepreneur
 );
 
 router.get(
-  '/me',
+  '/slug/:slug',
   authMiddleware,
-  roleMiddleware('entrepreneur', 'emprendedora'),
-  entrepreneurController.getMyProfile
-);
-
-router.put(
-  '/me',
-  authMiddleware,
-  roleMiddleware('entrepreneur', 'emprendedora'),
-  validate(updateEntrepreneurSchema),
-  entrepreneurController.updateMyProfile
-);
-
-router.get(
-  '/',
-  authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
-  validate(listEntrepreneursSchema),
-  entrepreneurController.listEntrepreneurs
+  adminOrEditor,
+  validate(entrepreneurSlugParamSchema),
+  entrepreneurController.getEntrepreneurBySlug
 );
 
 router.get(
   '/:id',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOrEditor,
   validate(entrepreneurIdParamSchema),
   entrepreneurController.getEntrepreneurById
+);
+
+router.put(
+  '/:id',
+  authMiddleware,
+  adminOrEditor,
+  validate(updateEntrepreneurSchema),
+  entrepreneurController.updateEntrepreneur
 );
 
 router.patch(
   '/:id/approve',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOrEditor,
   validate(entrepreneurIdParamSchema),
   entrepreneurController.approveEntrepreneur
 );
@@ -72,7 +72,7 @@ router.patch(
 router.patch(
   '/:id/reject',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOrEditor,
   validate(rejectEntrepreneurSchema),
   entrepreneurController.rejectEntrepreneur
 );
@@ -80,9 +80,17 @@ router.patch(
 router.patch(
   '/:id/status',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOrEditor,
   validate(updateEntrepreneurStatusSchema),
   entrepreneurController.updateEntrepreneurStatus
+);
+
+router.patch(
+  '/:id/featured',
+  authMiddleware,
+  adminOrEditor,
+  validate(updateFeaturedEntrepreneurSchema),
+  entrepreneurController.updateEntrepreneurFeatured
 );
 
 module.exports = router;

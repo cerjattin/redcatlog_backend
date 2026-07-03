@@ -1,16 +1,54 @@
 const { AppError } = require('../utils/app-error.util');
 const { toStringId } = require('../utils/bigint-json.util');
+
 const entrepreneurRepository = require('../repositories/entrepreneur.repository');
 const approvalRepository = require('../repositories/approval.repository');
 const auditRepository = require('../repositories/audit.repository');
 
-const ADMIN_VISIBLE_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'inactive'];
+const ADMIN_VISIBLE_STATUSES = [
+  'draft',
+  'pending_review',
+  'approved',
+  'rejected',
+  'inactive',
+];
+
+const generateSlug = (text) => {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
+};
+
+const toNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+
+  const parsed = Number(value);
+
+  if (Number.isNaN(parsed)) return null;
+
+  return parsed;
+};
+
+const jsonOrNull = (value) => {
+  if (value === undefined || value === null) return null;
+
+  try {
+    return JSON.stringify(value);
+  } catch (_error) {
+    return null;
+  }
+};
 
 const normalizeUser = (user) => {
   if (!user) return null;
 
   return {
     id: toStringId(user.id),
+    roleId: toStringId(user.roleId),
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
@@ -34,32 +72,58 @@ const normalizeUser = (user) => {
   };
 };
 
-const normalizeBusinessStatus = (business) => {
-  if (!business) return null;
+const normalizeCategory = (category) => {
+  if (!category) return null;
 
   return {
-    id: toStringId(business.id),
-    name: business.name,
-    slug: business.slug,
-    status: business.status,
-    approvedAt: business.approvedAt,
-    publishedAt: business.publishedAt,
-    createdAt: business.createdAt,
-    updatedAt: business.updatedAt,
+    id: toStringId(category.id),
+    parentId: toStringId(category.parentId),
+    name: category.name,
+    slug: category.slug,
+    description: category.description,
+    iconUrl: category.iconUrl,
+    type: category.type,
+    sortOrder: category.sortOrder,
+    isActive: category.isActive,
   };
 };
 
-const normalizeEntrepreneurStatus = (entrepreneur) => {
-  if (!entrepreneur) return null;
+const normalizeProductImage = (image) => {
+  if (!image) return null;
 
   return {
-    id: toStringId(entrepreneur.id),
-    status: entrepreneur.status,
-    approvedAt: entrepreneur.approvedAt,
-    rejectedAt: entrepreneur.rejectedAt,
-    rejectionReason: entrepreneur.rejectionReason,
-    createdAt: entrepreneur.createdAt,
-    updatedAt: entrepreneur.updatedAt,
+    id: toStringId(image.id),
+    productId: toStringId(image.productId),
+    imageUrl: image.imageUrl,
+    altText: image.altText,
+    sortOrder: image.sortOrder,
+    isMain: image.isMain,
+  };
+};
+
+const normalizeProductSummary = (product) => {
+  if (!product) return null;
+
+  return {
+    id: toStringId(product.id),
+    entrepreneurId: toStringId(product.entrepreneurId),
+    categoryId: toStringId(product.categoryId),
+    name: product.name,
+    slug: product.slug,
+    shortDescription: product.shortDescription,
+    price: product.price !== null && product.price !== undefined ? product.price.toString() : null,
+    hasPrice: product.hasPrice,
+    stock: product.stock,
+    managesStock: product.managesStock,
+    status: product.status,
+    isFeatured: product.isFeatured,
+    featuredOrder: product.featuredOrder,
+    category: normalizeCategory(product.category),
+    images: Array.isArray(product.images)
+      ? product.images.map(normalizeProductImage)
+      : [],
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
   };
 };
 
@@ -69,201 +133,165 @@ const normalizeEntrepreneur = (entrepreneur) => {
   return {
     id: toStringId(entrepreneur.id),
     userId: toStringId(entrepreneur.userId),
+    categoryId: toStringId(entrepreneur.categoryId),
+
+    firstName: entrepreneur.firstName,
+    lastName: entrepreneur.lastName,
+    fullName: `${entrepreneur.firstName || ''} ${entrepreneur.lastName || ''}`.trim(),
+
+    slug: entrepreneur.slug,
+    photoUrl: entrepreneur.photoUrl,
+    bannerUrl: entrepreneur.bannerUrl,
+
+    email: entrepreneur.email,
+    phone: entrepreneur.phone,
+    whatsapp: entrepreneur.whatsapp,
+
+    facebookUrl: entrepreneur.facebookUrl,
+    instagramUrl: entrepreneur.instagramUrl,
+    tiktokUrl: entrepreneur.tiktokUrl,
+    youtubeUrl: entrepreneur.youtubeUrl,
+    websiteUrl: entrepreneur.websiteUrl,
+
     documentType: entrepreneur.documentType,
     documentNumber: entrepreneur.documentNumber,
+
     personalStory: entrepreneur.personalStory,
     shortBio: entrepreneur.shortBio,
     locationText: entrepreneur.locationText,
     city: entrepreneur.city,
     department: entrepreneur.department,
     country: entrepreneur.country,
+
     status: entrepreneur.status,
+
+    isFeatured: entrepreneur.isFeatured,
+    featuredOrder: entrepreneur.featuredOrder,
+
     approvedAt: entrepreneur.approvedAt,
-    approvedBy: entrepreneur.approvedBy ? toStringId(entrepreneur.approvedBy) : null,
+    approvedBy: toStringId(entrepreneur.approvedBy),
     rejectedAt: entrepreneur.rejectedAt,
     rejectionReason: entrepreneur.rejectionReason,
+
+    user: normalizeUser(entrepreneur.user),
+    category: normalizeCategory(entrepreneur.category),
+    approvedByUser: normalizeUser(entrepreneur.approvedByUser),
+
+    products: Array.isArray(entrepreneur.products)
+      ? entrepreneur.products.map(normalizeProductSummary)
+      : [],
+
     createdAt: entrepreneur.createdAt,
     updatedAt: entrepreneur.updatedAt,
-    user: normalizeUser(entrepreneur.user),
-    approvedByUser: normalizeUser(entrepreneur.approvedByUser),
-    businesses: entrepreneur.businesses ? entrepreneur.businesses.map(normalizeBusinessStatus) : [],
   };
 };
 
-const getMyEntrepreneurStatus = async (userId) => {
-  const entrepreneur = await entrepreneurRepository.findEntrepreneurByUserId(userId);
-
-  if (!entrepreneur) {
-    return {
-      profileExists: false,
-      entrepreneur: null,
-      business: null,
-      businesses: [],
-      canCreateProfile: true,
-      canEditProfile: false,
-      canCreateBusiness: false,
-      canCreateProducts: false,
-      nextAction: 'create_entrepreneur_profile',
-    };
-  }
-
-  const businesses = entrepreneur.businesses || [];
-
-  const enabledBusiness = businesses.find((business) =>
-    ['approved', 'published'].includes(business.status)
-  );
-
-  const firstBusiness = enabledBusiness || businesses[0] || null;
-
-  const isProfileApproved = entrepreneur.status === 'approved';
-  const canEditProfile = ['draft', 'pending_review', 'rejected'].includes(entrepreneur.status);
-  const canCreateBusiness = isProfileApproved;
-  const canCreateProducts = isProfileApproved && Boolean(enabledBusiness);
-
-  let nextAction = 'wait_admin_approval';
-
-  if (entrepreneur.status === 'draft') {
-    nextAction = 'complete_entrepreneur_profile';
-  }
-
-  if (entrepreneur.status === 'pending_review') {
-    nextAction = 'wait_admin_approval';
-  }
-
-  if (entrepreneur.status === 'rejected') {
-    nextAction = 'edit_entrepreneur_profile';
-  }
-
-  if (entrepreneur.status === 'inactive') {
-    nextAction = 'contact_admin';
-  }
-
-  if (isProfileApproved && businesses.length === 0) {
-    nextAction = 'create_business';
-  }
-
-  if (isProfileApproved && businesses.length > 0 && !enabledBusiness) {
-    nextAction = 'wait_business_approval';
-  }
-
-  if (canCreateProducts) {
-    nextAction = 'manage_products';
-  }
+const normalizePagination = ({ page, limit, total }) => {
+  const totalPages = Math.ceil(total / limit);
 
   return {
-    profileExists: true,
-    entrepreneur: normalizeEntrepreneurStatus(entrepreneur),
-    business: normalizeBusinessStatus(firstBusiness),
-    businesses: businesses.map(normalizeBusinessStatus),
-    canCreateProfile: false,
-    canEditProfile,
-    canCreateBusiness,
-    canCreateProducts,
-    nextAction,
+    page,
+    limit,
+    total,
+    totalPages,
+    hasNextPage: page < totalPages,
+    hasPrevPage: page > 1,
   };
 };
 
-const createMyProfile = async (userId, payload, req) => {
-  const existingEntrepreneur = await entrepreneurRepository.findEntrepreneurByUserId(userId);
+const ensureUniqueSlug = async (baseSlug, currentId = null) => {
+  let slug = baseSlug;
+  let counter = 2;
 
-  if (existingEntrepreneur) {
-    throw new AppError('El usuario ya tiene un perfil de emprendedora.', 409);
+  while (true) {
+    const existing = await entrepreneurRepository.findEntrepreneurBySlug(slug);
+
+    if (!existing) return slug;
+
+    if (currentId && existing.id.toString() === currentId.toString()) {
+      return slug;
+    }
+
+    slug = `${baseSlug}-${counter}`;
+    counter += 1;
   }
-
-  const entrepreneur = await entrepreneurRepository.createEntrepreneur({
-    userId: BigInt(userId),
-    documentType: payload.documentType || null,
-    documentNumber: payload.documentNumber || null,
-    personalStory: payload.personalStory || null,
-    shortBio: payload.shortBio || null,
-    locationText: payload.locationText || null,
-    city: payload.city || null,
-    department: payload.department || null,
-    country: payload.country || 'Colombia',
-    status: 'pending_review',
-  });
-
-  await auditRepository.createAuditLog({
-    userId: BigInt(userId),
-    action: 'create',
-    entityType: 'entrepreneur',
-    entityId: entrepreneur.id,
-    ipAddress: req.ip || null,
-    userAgent: req.headers['user-agent'] || null,
-    newValues: payload,
-    description: 'Creación de perfil de emprendedora.',
-  });
-
-  return normalizeEntrepreneur(entrepreneur);
 };
 
-const getMyProfile = async (userId) => {
-  const entrepreneur = await entrepreneurRepository.findEntrepreneurByUserId(userId);
+const cleanEntrepreneurPayload = async (payload, currentId = null) => {
+  const data = {};
 
-  if (!entrepreneur) {
-    throw new AppError('No tienes perfil de emprendedora creado.', 404);
+  if (payload.userId !== undefined) {
+    data.userId = payload.userId ? BigInt(payload.userId) : null;
   }
 
-  return normalizeEntrepreneur(entrepreneur);
-};
-
-const updateMyProfile = async (userId, payload, req) => {
-  const entrepreneur = await entrepreneurRepository.findEntrepreneurByUserId(userId);
-
-  if (!entrepreneur) {
-    throw new AppError('No tienes perfil de emprendedora creado.', 404);
+  if (payload.categoryId !== undefined) {
+    data.categoryId = payload.categoryId ? BigInt(payload.categoryId) : null;
   }
 
-  if (entrepreneur.status === 'approved') {
-    throw new AppError('El perfil aprobado no puede editarse directamente en esta versión.', 409);
+  if (payload.firstName !== undefined) {
+    data.firstName = payload.firstName.trim();
   }
 
-  const allowedData = {
-    documentType: payload.documentType,
-    documentNumber: payload.documentNumber,
-    personalStory: payload.personalStory,
-    shortBio: payload.shortBio,
-    locationText: payload.locationText,
-    city: payload.city,
-    department: payload.department,
-    country: payload.country,
-  };
+  if (payload.lastName !== undefined) {
+    data.lastName = payload.lastName.trim();
+  }
 
-  Object.keys(allowedData).forEach((key) => {
-    if (allowedData[key] === undefined) delete allowedData[key];
+  if (payload.slug !== undefined || payload.firstName !== undefined || payload.lastName !== undefined) {
+    const rawSlug =
+      payload.slug ||
+      `${payload.firstName || ''} ${payload.lastName || ''}`.trim();
+
+    const baseSlug = generateSlug(rawSlug);
+
+    if (baseSlug) {
+      data.slug = await ensureUniqueSlug(baseSlug, currentId);
+    }
+  }
+
+  const nullableFields = [
+    'photoUrl',
+    'bannerUrl',
+    'email',
+    'phone',
+    'whatsapp',
+    'facebookUrl',
+    'instagramUrl',
+    'tiktokUrl',
+    'youtubeUrl',
+    'websiteUrl',
+    'documentType',
+    'documentNumber',
+    'personalStory',
+    'shortBio',
+    'locationText',
+    'city',
+    'department',
+    'country',
+    'rejectionReason',
+  ];
+
+  nullableFields.forEach((field) => {
+    if (payload[field] !== undefined) {
+      data[field] = payload[field] || null;
+    }
   });
 
-  if (['draft', 'rejected'].includes(entrepreneur.status)) {
-    allowedData.status = 'pending_review';
-    allowedData.rejectedAt = null;
-    allowedData.rejectionReason = null;
+  if (payload.status !== undefined) {
+    data.status = payload.status;
   }
 
-  const updated = await entrepreneurRepository.updateEntrepreneurById(entrepreneur.id, allowedData);
+  if (payload.isFeatured !== undefined) {
+    data.isFeatured = payload.isFeatured;
+  }
 
-  await auditRepository.createAuditLog({
-    userId: BigInt(userId),
-    action: 'update',
-    entityType: 'entrepreneur',
-    entityId: entrepreneur.id,
-    ipAddress: req.ip || null,
-    userAgent: req.headers['user-agent'] || null,
-    oldValues: {
-      status: entrepreneur.status,
-      documentType: entrepreneur.documentType,
-      documentNumber: entrepreneur.documentNumber,
-      city: entrepreneur.city,
-      department: entrepreneur.department,
-      country: entrepreneur.country,
-    },
-    newValues: allowedData,
-    description: 'Actualización de perfil de emprendedora.',
-  });
+  if (payload.featuredOrder !== undefined) {
+    data.featuredOrder = toNumberOrNull(payload.featuredOrder);
+  }
 
-  return normalizeEntrepreneur(updated);
+  return data;
 };
 
-const buildWhere = ({ status, city, department, search }) => {
+const buildWhere = ({ status, categoryId, city, department, search, isFeatured }) => {
   const where = {};
 
   if (status) {
@@ -274,32 +302,75 @@ const buildWhere = ({ status, city, department, search }) => {
     };
   }
 
-  if (city) where.city = { contains: city };
-  if (department) where.department = { contains: department };
+  if (categoryId) {
+    where.categoryId = BigInt(categoryId);
+  }
+
+  if (city) {
+    where.city = {
+      contains: city,
+    };
+  }
+
+  if (department) {
+    where.department = {
+      contains: department,
+    };
+  }
+
+  if (isFeatured === 'true') {
+    where.isFeatured = true;
+  }
+
+  if (isFeatured === 'false') {
+    where.isFeatured = false;
+  }
 
   if (search) {
     where.OR = [
-      { shortBio: { contains: search } },
-      { personalStory: { contains: search } },
       {
-        user: {
-          firstName: {
-            contains: search,
-          },
+        firstName: {
+          contains: search,
         },
       },
       {
-        user: {
-          lastName: {
-            contains: search,
-          },
+        lastName: {
+          contains: search,
         },
       },
       {
-        user: {
-          email: {
-            contains: search,
-          },
+        email: {
+          contains: search,
+        },
+      },
+      {
+        phone: {
+          contains: search,
+        },
+      },
+      {
+        whatsapp: {
+          contains: search,
+        },
+      },
+      {
+        shortBio: {
+          contains: search,
+        },
+      },
+      {
+        personalStory: {
+          contains: search,
+        },
+      },
+      {
+        city: {
+          contains: search,
+        },
+      },
+      {
+        department: {
+          contains: search,
         },
       },
     ];
@@ -308,7 +379,50 @@ const buildWhere = ({ status, city, department, search }) => {
   return where;
 };
 
-const listEntrepreneurs = async (query) => {
+const createEntrepreneur = async (payload, req) => {
+  if (payload.documentType && payload.documentNumber) {
+    const existingDocument = await entrepreneurRepository.findEntrepreneurByDocument(
+      payload.documentType,
+      payload.documentNumber
+    );
+
+    if (existingDocument) {
+      throw new AppError('Ya existe una emprendedora con ese documento.', 409);
+    }
+  }
+
+  if (payload.userId) {
+    const existingUserProfile = await entrepreneurRepository.findEntrepreneurByUserId(payload.userId);
+
+    if (existingUserProfile) {
+      throw new AppError('Ese usuario ya está asociado a una emprendedora.', 409);
+    }
+  }
+
+  const data = await cleanEntrepreneurPayload({
+    ...payload,
+    country: payload.country || 'Colombia',
+    status: payload.status || 'draft',
+  });
+
+  const entrepreneur = await entrepreneurRepository.createEntrepreneur(data);
+
+  await auditRepository.createAuditLog({
+    userId: req.user?.sub ? BigInt(req.user.sub) : null,
+    action: 'create',
+    entityType: 'entrepreneur',
+    entityId: entrepreneur.id,
+    ipAddress: req.ip || null,
+    userAgent: req.headers['user-agent'] || null,
+    oldValues: null,
+    newValues: jsonOrNull(data),
+    description: 'Creación de emprendedora por admin/editor.',
+  });
+
+  return normalizeEntrepreneur(entrepreneur);
+};
+
+const listEntrepreneurs = async (query = {}) => {
   const page = Number(query.page || 1);
   const limit = Number(query.limit || 20);
 
@@ -323,39 +437,130 @@ const listEntrepreneurs = async (query) => {
       skip,
       take: safeLimit,
       where,
+      orderBy: {
+        createdAt: 'desc',
+      },
     }),
     entrepreneurRepository.countEntrepreneurs(where),
   ]);
 
   return {
     items: items.map(normalizeEntrepreneur),
-    pagination: {
+    pagination: normalizePagination({
       page: safePage,
       limit: safeLimit,
       total,
-      totalPages: Math.ceil(total / safeLimit),
-    },
+    }),
   };
 };
 
-const getById = async (id) => {
+const listPublicEntrepreneurs = async (query = {}) => {
+  return listEntrepreneurs({
+    ...query,
+    status: 'approved',
+  });
+};
+
+const getEntrepreneurById = async (id) => {
   const entrepreneur = await entrepreneurRepository.findEntrepreneurById(id);
 
   if (!entrepreneur) {
-    throw new AppError('Perfil de emprendedora no encontrado.', 404);
+    throw new AppError('Emprendedora no encontrada.', 404);
   }
 
   return normalizeEntrepreneur(entrepreneur);
 };
 
-const approve = async (id, reviewerId, req) => {
-  const entrepreneur = await entrepreneurRepository.findEntrepreneurById(id);
+const getEntrepreneurBySlug = async (slug) => {
+  const entrepreneur = await entrepreneurRepository.findEntrepreneurBySlug(slug);
 
   if (!entrepreneur) {
-    throw new AppError('Perfil de emprendedora no encontrado.', 404);
+    throw new AppError('Emprendedora no encontrada.', 404);
   }
 
-  const previousStatus = entrepreneur.status;
+  return normalizeEntrepreneur(entrepreneur);
+};
+
+const getPublicEntrepreneurById = async (id) => {
+  const entrepreneur = await entrepreneurRepository.findEntrepreneurById(id);
+
+  if (!entrepreneur || entrepreneur.status !== 'approved') {
+    throw new AppError('Emprendedora no disponible públicamente.', 404);
+  }
+
+  return normalizeEntrepreneur(entrepreneur);
+};
+
+const getPublicEntrepreneurBySlug = async (slug) => {
+  const entrepreneur = await entrepreneurRepository.findEntrepreneurBySlug(slug);
+
+  if (!entrepreneur || entrepreneur.status !== 'approved') {
+    throw new AppError('Emprendedora no disponible públicamente.', 404);
+  }
+
+  return normalizeEntrepreneur(entrepreneur);
+};
+
+const updateEntrepreneur = async (id, payload, req) => {
+  const current = await entrepreneurRepository.findEntrepreneurById(id);
+
+  if (!current) {
+    throw new AppError('Emprendedora no encontrada.', 404);
+  }
+
+  if (payload.documentType && payload.documentNumber) {
+    const existingDocument = await entrepreneurRepository.findEntrepreneurByDocument(
+      payload.documentType,
+      payload.documentNumber
+    );
+
+    if (existingDocument && existingDocument.id.toString() !== id.toString()) {
+      throw new AppError('Ya existe otra emprendedora con ese documento.', 409);
+    }
+  }
+
+  if (payload.userId) {
+    const existingUserProfile = await entrepreneurRepository.findEntrepreneurByUserId(payload.userId);
+
+    if (existingUserProfile && existingUserProfile.id.toString() !== id.toString()) {
+      throw new AppError('Ese usuario ya está asociado a otra emprendedora.', 409);
+    }
+  }
+
+  const data = await cleanEntrepreneurPayload(payload, id);
+
+  const updated = await entrepreneurRepository.updateEntrepreneurById(id, data);
+
+  await auditRepository.createAuditLog({
+    userId: req.user?.sub ? BigInt(req.user.sub) : null,
+    action: 'update',
+    entityType: 'entrepreneur',
+    entityId: BigInt(id),
+    ipAddress: req.ip || null,
+    userAgent: req.headers['user-agent'] || null,
+    oldValues: jsonOrNull({
+      status: current.status,
+      firstName: current.firstName,
+      lastName: current.lastName,
+      categoryId: current.categoryId,
+      city: current.city,
+      department: current.department,
+    }),
+    newValues: jsonOrNull(data),
+    description: 'Actualización de emprendedora por admin/editor.',
+  });
+
+  return normalizeEntrepreneur(updated);
+};
+
+const approveEntrepreneur = async (id, reviewerId, req) => {
+  const current = await entrepreneurRepository.findEntrepreneurById(id);
+
+  if (!current) {
+    throw new AppError('Emprendedora no encontrada.', 404);
+  }
+
+  const previousStatus = current.status;
 
   const updated = await entrepreneurRepository.updateEntrepreneurById(id, {
     status: 'approved',
@@ -371,7 +576,7 @@ const approve = async (id, reviewerId, req) => {
     previousStatus,
     newStatus: 'approved',
     reviewedBy: BigInt(reviewerId),
-    reviewComment: 'Perfil aprobado.',
+    reviewComment: 'Emprendedora aprobada.',
   });
 
   await auditRepository.createAuditLog({
@@ -381,22 +586,22 @@ const approve = async (id, reviewerId, req) => {
     entityId: BigInt(id),
     ipAddress: req.ip || null,
     userAgent: req.headers['user-agent'] || null,
-    oldValues: { status: previousStatus },
-    newValues: { status: 'approved' },
-    description: 'Aprobación de perfil de emprendedora.',
+    oldValues: jsonOrNull({ status: previousStatus }),
+    newValues: jsonOrNull({ status: 'approved' }),
+    description: 'Aprobación de emprendedora.',
   });
 
   return normalizeEntrepreneur(updated);
 };
 
-const reject = async (id, reviewerId, rejectionReason, req) => {
-  const entrepreneur = await entrepreneurRepository.findEntrepreneurById(id);
+const rejectEntrepreneur = async (id, reviewerId, rejectionReason, req) => {
+  const current = await entrepreneurRepository.findEntrepreneurById(id);
 
-  if (!entrepreneur) {
-    throw new AppError('Perfil de emprendedora no encontrado.', 404);
+  if (!current) {
+    throw new AppError('Emprendedora no encontrada.', 404);
   }
 
-  const previousStatus = entrepreneur.status;
+  const previousStatus = current.status;
 
   const updated = await entrepreneurRepository.updateEntrepreneurById(id, {
     status: 'rejected',
@@ -420,26 +625,39 @@ const reject = async (id, reviewerId, rejectionReason, req) => {
     entityId: BigInt(id),
     ipAddress: req.ip || null,
     userAgent: req.headers['user-agent'] || null,
-    oldValues: { status: previousStatus },
-    newValues: { status: 'rejected', rejectionReason },
-    description: 'Rechazo de perfil de emprendedora.',
+    oldValues: jsonOrNull({ status: previousStatus }),
+    newValues: jsonOrNull({ status: 'rejected', rejectionReason }),
+    description: 'Rechazo de emprendedora.',
   });
 
   return normalizeEntrepreneur(updated);
 };
 
-const updateStatus = async (id, status, reviewerId, req) => {
-  const entrepreneur = await entrepreneurRepository.findEntrepreneurById(id);
+const updateEntrepreneurStatus = async (id, status, reviewerId, req) => {
+  const current = await entrepreneurRepository.findEntrepreneurById(id);
 
-  if (!entrepreneur) {
-    throw new AppError('Perfil de emprendedora no encontrado.', 404);
+  if (!current) {
+    throw new AppError('Emprendedora no encontrada.', 404);
   }
 
-  const previousStatus = entrepreneur.status;
+  const previousStatus = current.status;
 
-  const updated = await entrepreneurRepository.updateEntrepreneurById(id, {
+  const data = {
     status,
-  });
+  };
+
+  if (status === 'approved') {
+    data.approvedAt = new Date();
+    data.approvedBy = BigInt(reviewerId);
+    data.rejectedAt = null;
+    data.rejectionReason = null;
+  }
+
+  if (status === 'rejected') {
+    data.rejectedAt = new Date();
+  }
+
+  const updated = await entrepreneurRepository.updateEntrepreneurById(id, data);
 
   await approvalRepository.createApprovalLog({
     entityType: 'entrepreneur',
@@ -457,30 +675,57 @@ const updateStatus = async (id, status, reviewerId, req) => {
     entityId: BigInt(id),
     ipAddress: req.ip || null,
     userAgent: req.headers['user-agent'] || null,
-    oldValues: { status: previousStatus },
-    newValues: { status },
-    description: 'Cambio de estado de perfil de emprendedora.',
+    oldValues: jsonOrNull({ status: previousStatus }),
+    newValues: jsonOrNull({ status }),
+    description: 'Cambio de estado de emprendedora.',
   });
 
   return normalizeEntrepreneur(updated);
 };
 
-const listPublicEntrepreneurs = async (query) => {
-  return listEntrepreneurs({
-    ...query,
-    status: 'approved',
+const updateEntrepreneurFeatured = async (id, payload, req) => {
+  const current = await entrepreneurRepository.findEntrepreneurById(id);
+
+  if (!current) {
+    throw new AppError('Emprendedora no encontrada.', 404);
+  }
+
+  const data = {
+    isFeatured: payload.isFeatured,
+    featuredOrder: toNumberOrNull(payload.featuredOrder),
+  };
+
+  const updated = await entrepreneurRepository.updateEntrepreneurById(id, data);
+
+  await auditRepository.createAuditLog({
+    userId: req.user?.sub ? BigInt(req.user.sub) : null,
+    action: 'update',
+    entityType: 'entrepreneur',
+    entityId: BigInt(id),
+    ipAddress: req.ip || null,
+    userAgent: req.headers['user-agent'] || null,
+    oldValues: jsonOrNull({
+      isFeatured: current.isFeatured,
+      featuredOrder: current.featuredOrder,
+    }),
+    newValues: jsonOrNull(data),
+    description: 'Actualización de destacado de emprendedora.',
   });
+
+  return normalizeEntrepreneur(updated);
 };
 
 module.exports = {
-  createMyProfile,
-  getMyProfile,
-  updateMyProfile,
+  createEntrepreneur,
   listEntrepreneurs,
-  getById,
-  approve,
-  reject,
-  updateStatus,
   listPublicEntrepreneurs,
-  getMyEntrepreneurStatus,
+  getEntrepreneurById,
+  getEntrepreneurBySlug,
+  getPublicEntrepreneurById,
+  getPublicEntrepreneurBySlug,
+  updateEntrepreneur,
+  approveEntrepreneur,
+  rejectEntrepreneur,
+  updateEntrepreneurStatus,
+  updateEntrepreneurFeatured,
 };
