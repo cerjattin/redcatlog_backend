@@ -8,10 +8,15 @@ const { AppError } = require('../utils/app-error.util');
 const { UPLOAD_FOLDERS } = require('../constants/upload.constants');
 
 const uploadSingleImage = asyncHandler(async (req, res) => {
-  const folder = req.params.folder;
+  const folder = req.uploadFolder || req.params.folder;
 
-  if (!Object.values(UPLOAD_FOLDERS).includes(folder)) {
-    throw new AppError('Carpeta de carga no permitida.', 400);
+  const allowedFolders = Object.values(UPLOAD_FOLDERS);
+
+  if (!folder || !allowedFolders.includes(folder)) {
+    throw new AppError(
+      `Carpeta de carga no permitida. Usa una de estas: ${allowedFolders.join(', ')}.`,
+      400
+    );
   }
 
   if (!req.file) {
@@ -28,7 +33,7 @@ const uploadSingleImage = asyncHandler(async (req, res) => {
     title: req.body.title || null,
     description: req.body.description || null,
     altText: req.body.altText || null,
-    uploadedBy: BigInt(req.user.sub),
+    uploadedBy: req.user?.sub ? BigInt(req.user.sub) : null,
   });
 
   return successResponse(
@@ -41,11 +46,20 @@ const uploadSingleImage = asyncHandler(async (req, res) => {
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
       sizeBytes: req.file.size,
+      folder,
     },
     201
   );
 });
 
+/**
+ * Alias para mantener compatibilidad.
+ * Algunas rutas pueden llamar uploadController.uploadSingleImage
+ * y otras uploadController.uploadImage.
+ */
+const uploadImage = uploadSingleImage;
+
 module.exports = {
   uploadSingleImage,
+  uploadImage,
 };
