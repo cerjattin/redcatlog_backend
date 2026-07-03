@@ -117,7 +117,7 @@ const getPublicProductBySlug = asyncHandler(async (req, res) => {
 
 /**
  * Legacy handlers.
- * Estos métodos existían cuando la emprendedora administraba sus propios productos.
+ * Estos métodos existían en la lógica anterior de gestión individual de productos.
  * En la nueva lógica REDMUEMMA solo admin/editor gestionan productos.
  * Se dejan temporalmente para evitar errores de importación mientras se ajustan rutas.
  */

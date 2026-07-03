@@ -25,11 +25,21 @@ const adminOverview = async () => {
     totalCategories,
     activeCategories,
     inactiveCategories,
+
+    totalCmsPages,
+    publishedCmsPages,
+
+    totalMediaFiles,
   ] = await Promise.all([
-    prisma.user.count(),
+    prisma.user.count({
+      where: {
+        deletedAt: null,
+      },
+    }),
 
     prisma.user.count({
       where: {
+        deletedAt: null,
         role: {
           name: 'admin',
         },
@@ -38,6 +48,7 @@ const adminOverview = async () => {
 
     prisma.user.count({
       where: {
+        deletedAt: null,
         role: {
           name: 'editor',
         },
@@ -133,6 +144,16 @@ const adminOverview = async () => {
         isActive: false,
       },
     }),
+
+    prisma.cmsPage.count(),
+
+    prisma.cmsPage.count({
+      where: {
+        status: 'published',
+      },
+    }),
+
+    prisma.mediaFile.count(),
   ]);
 
   return {
@@ -167,84 +188,18 @@ const adminOverview = async () => {
       active: activeCategories,
       inactive: inactiveCategories,
     },
-  };
-};
 
-const entrepreneurOverview = async (entrepreneurId) => {
-  const entrepreneurIdBigInt = BigInt(entrepreneurId);
+    cms: {
+      totalPages: totalCmsPages,
+      publishedPages: publishedCmsPages,
+    },
 
-  const [
-    myProducts,
-    draftProducts,
-    pendingProducts,
-    publishedProducts,
-    rejectedProducts,
-    inactiveProducts,
-    featuredProducts,
-  ] = await Promise.all([
-    prisma.product.count({
-      where: {
-        entrepreneurId: entrepreneurIdBigInt,
-      },
-    }),
-
-    prisma.product.count({
-      where: {
-        entrepreneurId: entrepreneurIdBigInt,
-        status: 'draft',
-      },
-    }),
-
-    prisma.product.count({
-      where: {
-        entrepreneurId: entrepreneurIdBigInt,
-        status: 'pending_review',
-      },
-    }),
-
-    prisma.product.count({
-      where: {
-        entrepreneurId: entrepreneurIdBigInt,
-        status: 'published',
-      },
-    }),
-
-    prisma.product.count({
-      where: {
-        entrepreneurId: entrepreneurIdBigInt,
-        status: 'rejected',
-      },
-    }),
-
-    prisma.product.count({
-      where: {
-        entrepreneurId: entrepreneurIdBigInt,
-        status: 'inactive',
-      },
-    }),
-
-    prisma.product.count({
-      where: {
-        entrepreneurId: entrepreneurIdBigInt,
-        isFeatured: true,
-      },
-    }),
-  ]);
-
-  return {
-    products: {
-      total: myProducts,
-      draft: draftProducts,
-      pending: pendingProducts,
-      published: publishedProducts,
-      rejected: rejectedProducts,
-      inactive: inactiveProducts,
-      featured: featuredProducts,
+    media: {
+      totalFiles: totalMediaFiles,
     },
   };
 };
 
 module.exports = {
   adminOverview,
-  entrepreneurOverview,
 };
