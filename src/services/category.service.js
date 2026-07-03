@@ -3,6 +3,26 @@ const { toStringId } = require('../utils/bigint-json.util');
 const categoryRepository = require('../repositories/category.repository');
 const auditRepository = require('../repositories/audit.repository');
 
+const generateSlug = (text) => {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
+};
+
+const toNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+
+  const parsed = Number(value);
+
+  if (Number.isNaN(parsed)) return null;
+
+  return parsed;
+};
+
 const normalizeCategory = (category) => {
   if (!category) return null;
 
@@ -23,35 +43,60 @@ const normalizeCategory = (category) => {
           id: toStringId(category.parent.id),
           name: category.parent.name,
           slug: category.parent.slug,
+          type: category.parent.type,
+          isActive: category.parent.isActive,
         }
       : null,
-    children: category.children
+    children: Array.isArray(category.children)
       ? category.children.map((child) => ({
           id: toStringId(child.id),
+          parentId: toStringId(child.parentId),
           name: child.name,
           slug: child.slug,
           type: child.type,
           isActive: child.isActive,
+          sortOrder: child.sortOrder,
         }))
       : [],
   };
 };
 
 const cleanPayload = (payload) => {
-  const data = {
-    parentId: payload.parentId ? BigInt(payload.parentId) : null,
-    name: payload.name,
-    slug: payload.slug,
-    description: payload.description,
-    iconUrl: payload.iconUrl,
-    type: payload.type || 'both',
-    sortOrder: payload.sortOrder,
-    isActive: payload.isActive,
-  };
+  const data = {};
 
-  Object.keys(data).forEach((key) => {
-    if (data[key] === undefined) delete data[key];
-  });
+  if (payload.parentId !== undefined) {
+    data.parentId = payload.parentId ? BigInt(payload.parentId) : null;
+  }
+
+  if (payload.name !== undefined) {
+    data.name = payload.name.trim();
+  }
+
+  if (payload.slug !== undefined) {
+    data.slug = generateSlug(payload.slug);
+  } else if (payload.name !== undefined) {
+    data.slug = generateSlug(payload.name);
+  }
+
+  if (payload.description !== undefined) {
+    data.description = payload.description || null;
+  }
+
+  if (payload.iconUrl !== undefined) {
+    data.iconUrl = payload.iconUrl || null;
+  }
+
+  if (payload.type !== undefined) {
+    data.type = payload.type;
+  }
+
+  if (payload.sortOrder !== undefined) {
+    data.sortOrder = toNumberOrNull(payload.sortOrder);
+  }
+
+  if (payload.isActive !== undefined) {
+    data.isActive = payload.isActive;
+  }
 
   return data;
 };
@@ -67,12 +112,16 @@ const buildWhere = ({ parentId, type, isActive, search }) => {
     where.type = {
       in: ['product', 'both'],
     };
-  } else if (type === 'business') {
+  }
+
+  if (type === 'entrepreneur') {
     where.type = {
-      in: ['business', 'both'],
+      in: ['entrepreneur', 'both'],
     };
-  } else if (type) {
-    where.type = type;
+  }
+
+  if (type === 'both') {
+    where.type = 'both';
   }
 
   if (isActive !== undefined) {
@@ -81,9 +130,21 @@ const buildWhere = ({ parentId, type, isActive, search }) => {
 
   if (search) {
     where.OR = [
-      { name: { contains: search } },
-      { slug: { contains: search } },
-      { description: { contains: search } },
+      {
+        name: {
+          contains: search,
+        },
+      },
+      {
+        slug: {
+          contains: search,
+        },
+      },
+      {
+        description: {
+          contains: search,
+        },
+      },
     ];
   }
 
@@ -93,6 +154,7 @@ const buildWhere = ({ parentId, type, isActive, search }) => {
 const listCategories = async (query = {}) => {
   const where = buildWhere(query);
   const categories = await categoryRepository.listCategories(where);
+
   return categories.map(normalizeCategory);
 };
 
@@ -124,21 +186,29 @@ const getCategoryBySlug = async (slug) => {
 };
 
 const createCategory = async (payload, userId, req) => {
-  const existing = await categoryRepository.findCategoryBySlug(payload.slug);
+  const data = {
+    ...cleanPayload({
+      ...payload,
+      type: payload.type || 'both',
+      isActive: payload.isActive ?? true,
+    }),
+  };
+
+  const existing = await categoryRepository.findCategoryBySlug(data.slug);
 
   if (existing) {
     throw new AppError('Ya existe una categoría con ese slug.', 409);
   }
 
-  if (payload.parentId) {
-    const parent = await categoryRepository.findCategoryById(payload.parentId);
+  if (data.parentId) {
+    const parent = await categoryRepository.findCategoryById(data.parentId);
 
     if (!parent) {
       throw new AppError('La categoría padre no existe.', 404);
     }
   }
 
-  const category = await categoryRepository.createCategory(cleanPayload(payload));
+  const category = await categoryRepository.createCategory(data);
 
   await auditRepository.createAuditLog({
     userId: BigInt(userId),
@@ -147,7 +217,7 @@ const createCategory = async (payload, userId, req) => {
     entityId: category.id,
     ipAddress: req.ip || null,
     userAgent: req.headers['user-agent'] || null,
-    newValues: payload,
+    newValues: data,
     description: 'Creación de categoría.',
   });
 
@@ -161,19 +231,21 @@ const updateCategory = async (id, payload, userId, req) => {
     throw new AppError('Categoría no encontrada.', 404);
   }
 
-  if (payload.slug && payload.slug !== category.slug) {
-    const existing = await categoryRepository.findCategoryBySlug(payload.slug);
+  const data = cleanPayload(payload);
+
+  if (data.slug && data.slug !== category.slug) {
+    const existing = await categoryRepository.findCategoryBySlug(data.slug);
 
     if (existing) {
       throw new AppError('Ya existe una categoría con ese slug.', 409);
     }
   }
 
-  if (payload.parentId && payload.parentId === id) {
+  if (data.parentId && data.parentId.toString() === id.toString()) {
     throw new AppError('Una categoría no puede ser padre de sí misma.', 400);
   }
 
-  const updated = await categoryRepository.updateCategoryById(id, cleanPayload(payload));
+  const updated = await categoryRepository.updateCategoryById(id, data);
 
   await auditRepository.createAuditLog({
     userId: BigInt(userId),
@@ -188,7 +260,7 @@ const updateCategory = async (id, payload, userId, req) => {
       type: category.type,
       isActive: category.isActive,
     },
-    newValues: payload,
+    newValues: data,
     description: 'Actualización de categoría.',
   });
 
@@ -208,7 +280,7 @@ const updateCategoryStatus = async (id, isActive, userId, req) => {
 
   await auditRepository.createAuditLog({
     userId: BigInt(userId),
-    action: 'status_change',
+    action: 'update',
     entityType: 'category',
     entityId: category.id,
     ipAddress: req.ip || null,

@@ -1,35 +1,53 @@
 const express = require('express');
 
 const userController = require('../controllers/user.controller');
+const passwordController = require('../controllers/password.controller');
+
 const { authMiddleware } = require('../middlewares/auth.middleware');
-const { roleMiddleware } = require('../middlewares/role.middleware');
+const { adminOnly } = require('../middlewares/role.middleware');
 const { validate } = require('../middlewares/validate.middleware');
+
 const {
+  createUserSchema,
   updateMeSchema,
   listUsersSchema,
   userIdParamSchema,
   updateUserStatusSchema,
 } = require('../schemas/user.schema');
-const passwordController = require('../controllers/password.controller');
+
 const { adminUpdateUserPasswordSchema } = require('../schemas/password.schema');
 
 const router = express.Router();
 
 router.get('/me', authMiddleware, userController.getMe);
-router.put('/me', authMiddleware, validate(updateMeSchema), userController.updateMe);
+
+router.put(
+  '/me',
+  authMiddleware,
+  validate(updateMeSchema),
+  userController.updateMe
+);
 
 router.get(
   '/',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(listUsersSchema),
   userController.listUsers
+);
+
+router.post(
+  '/',
+  authMiddleware,
+  adminOnly,
+  validate(createUserSchema),
+  userController.createUser
 );
 
 router.patch(
   '/:id/password',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(adminUpdateUserPasswordSchema),
   passwordController.adminUpdateUserPassword
 );
@@ -37,7 +55,7 @@ router.patch(
 router.get(
   '/:id',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(userIdParamSchema),
   userController.getUserById
 );
@@ -45,7 +63,7 @@ router.get(
 router.patch(
   '/:id/status',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(updateUserStatusSchema),
   userController.updateUserStatus
 );

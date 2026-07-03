@@ -4,7 +4,7 @@ const cmsUploadController = require('../controllers/cms-upload.controller');
 const { uploadImage } = require('../middlewares/upload.middleware');
 const cmsController = require('../controllers/cms.controller');
 const { authMiddleware } = require('../middlewares/auth.middleware');
-const { roleMiddleware } = require('../middlewares/role.middleware');
+const { adminOnly } = require('../middlewares/role.middleware');
 const { validate } = require('../middlewares/validate.middleware');
 const {
   createPageSchema,
@@ -20,14 +20,14 @@ const router = express.Router();
 router.get(
   '/pages',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+ adminOnly,
   cmsController.listPages
 );
 
 router.get(
   '/pages/:id',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(pageIdParamSchema),
   cmsController.getPageById
 );
@@ -35,7 +35,7 @@ router.get(
 router.post(
   '/pages',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(createPageSchema),
   cmsController.createPage
 );
@@ -43,7 +43,7 @@ router.post(
 router.put(
   '/pages/:id',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(pageIdParamSchema),
   validate(updatePageSchema),
   cmsController.updatePage
@@ -52,7 +52,7 @@ router.put(
 router.post(
   '/pages/:id/sections',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(createSectionSchema),
   cmsController.createSection
 );
@@ -60,7 +60,7 @@ router.post(
 router.post(
   '/sections/:id/image/upload',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(sectionIdParamSchema),
   uploadImage.single('image'),
   cmsUploadController.uploadCmsSectionImage
@@ -69,7 +69,7 @@ router.post(
 router.put(
   '/sections/:id',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(updateSectionSchema),
   cmsController.updateSection
 );
@@ -77,7 +77,7 @@ router.put(
 router.delete(
   '/sections/:id',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(sectionIdParamSchema),
   cmsController.deleteSection
 );

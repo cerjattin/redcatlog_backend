@@ -2,8 +2,9 @@ const express = require('express');
 
 const categoryController = require('../controllers/category.controller');
 const { authMiddleware } = require('../middlewares/auth.middleware');
-const { roleMiddleware } = require('../middlewares/role.middleware');
+const { adminOrEditor } = require('../middlewares/role.middleware');
 const { validate } = require('../middlewares/validate.middleware');
+
 const {
   createCategorySchema,
   updateCategorySchema,
@@ -14,14 +15,10 @@ const {
 
 const router = express.Router();
 
-const readCategoryRoles = ['admin', 'super_admin', 'entrepreneur', 'emprendedora'];
-
-const writeCategoryRoles = ['admin', 'super_admin'];
-
 router.get(
   '/',
   authMiddleware,
-  roleMiddleware(...readCategoryRoles),
+  adminOrEditor,
   validate(listCategoriesSchema),
   categoryController.listCategories
 );
@@ -29,7 +26,7 @@ router.get(
 router.get(
   '/:id',
   authMiddleware,
-  roleMiddleware(...readCategoryRoles),
+  adminOrEditor,
   validate(categoryIdParamSchema),
   categoryController.getCategoryById
 );
@@ -37,7 +34,7 @@ router.get(
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware(...writeCategoryRoles),
+  adminOrEditor,
   validate(createCategorySchema),
   categoryController.createCategory
 );
@@ -45,8 +42,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
-  roleMiddleware(...writeCategoryRoles),
-  validate(categoryIdParamSchema),
+  adminOrEditor,
   validate(updateCategorySchema),
   categoryController.updateCategory
 );
@@ -54,7 +50,7 @@ router.put(
 router.patch(
   '/:id/status',
   authMiddleware,
-  roleMiddleware(...writeCategoryRoles),
+  adminOrEditor,
   validate(updateCategoryStatusSchema),
   categoryController.updateCategoryStatus
 );

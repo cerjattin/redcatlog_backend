@@ -3,26 +3,26 @@ const { prisma } = require('../config/prisma');
 const findRoleByName = async (name) => {
   return prisma.role.findFirst({
     where: {
-      name,
+      name: String(name).toLowerCase(),
     },
   });
 };
 
-const findEntrepreneurRole = async () => {
-  return prisma.role.findFirst({
-    where: {
-      OR: [
-        { name: 'entrepreneur' },
-        { name: 'ENTREPRENEUR' },
-        { name: 'emprendedora' },
-        { name: 'EMPRENDEDORA' },
-      ],
-    },
-  });
+const findAdminRole = async () => {
+  return findRoleByName('admin');
+};
+
+const findEditorRole = async () => {
+  return findRoleByName('editor');
 };
 
 const listRoles = async () => {
   return prisma.role.findMany({
+    where: {
+      name: {
+        in: ['admin', 'editor'],
+      },
+    },
     orderBy: {
       id: 'asc',
     },
@@ -31,6 +31,7 @@ const listRoles = async () => {
 
 module.exports = {
   findRoleByName,
-  findEntrepreneurRole,
+  findAdminRole,
+  findEditorRole,
   listRoles,
 };

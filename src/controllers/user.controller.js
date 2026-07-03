@@ -12,6 +12,11 @@ const updateMe = asyncHandler(async (req, res) => {
   return successResponse(res, 'Perfil actualizado correctamente.', user);
 });
 
+const createUser = asyncHandler(async (req, res) => {
+  const user = await userService.createUser(req.validated.body);
+  return successResponse(res, 'Usuario creado correctamente.', user, 201);
+});
+
 const listUsers = asyncHandler(async (req, res) => {
   const result = await userService.listUsers(req.validated.query);
   return successResponse(res, 'Usuarios obtenidos correctamente.', result);
@@ -27,12 +32,14 @@ const updateUserStatus = asyncHandler(async (req, res) => {
     req.validated.params.id,
     req.validated.body.status
   );
+
   return successResponse(res, 'Estado de usuario actualizado correctamente.', user);
 });
 
 module.exports = {
   getMe,
   updateMe,
+  createUser,
   listUsers,
   getUserById,
   updateUserStatus,

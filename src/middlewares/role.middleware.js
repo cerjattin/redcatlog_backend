@@ -1,4 +1,5 @@
 const { AppError } = require('../utils/app-error.util');
+const { ADMIN_ROLES, ADMIN_OR_EDITOR_ROLES } = require('../constants/roles.constants');
 
 const normalizeRoleName = (role) => {
   return String(role || '')
@@ -23,7 +24,13 @@ const roleMiddleware = (...allowedRoles) => {
   };
 };
 
+const adminOnly = roleMiddleware(...ADMIN_ROLES);
+
+const adminOrEditor = roleMiddleware(...ADMIN_OR_EDITOR_ROLES);
+
 module.exports = {
   roleMiddleware,
+  adminOnly,
+  adminOrEditor,
   normalizeRoleName,
 };

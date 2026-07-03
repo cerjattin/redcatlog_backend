@@ -4,7 +4,7 @@ const galleryUploadController = require('../controllers/gallery-upload.controlle
 const { uploadImage } = require('../middlewares/upload.middleware');
 const mediaController = require('../controllers/media.controller');
 const { authMiddleware } = require('../middlewares/auth.middleware');
-const { roleMiddleware } = require('../middlewares/role.middleware');
+const { adminOnly } = require('../middlewares/role.middleware');
 const { validate } = require('../middlewares/validate.middleware');
 const {
   createMediaFileSchema,
@@ -20,7 +20,7 @@ const router = express.Router();
 router.post(
   '/files',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(createMediaFileSchema),
   mediaController.createMediaFile
 );
@@ -28,14 +28,14 @@ router.post(
 router.get(
   '/files',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   mediaController.listMediaFiles
 );
 
 router.get(
   '/files/:id',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(mediaFileIdParamSchema),
   mediaController.getMediaFileById
 );
@@ -43,7 +43,7 @@ router.get(
 router.post(
   '/galleries',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(createGallerySchema),
   mediaController.createGallery
 );
@@ -51,14 +51,14 @@ router.post(
 router.get(
   '/galleries',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   mediaController.listGalleries
 );
 
 router.get(
   '/galleries/:id',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(galleryIdParamSchema),
   mediaController.getGalleryById
 );
@@ -66,7 +66,7 @@ router.get(
 router.put(
   '/galleries/:id',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(galleryIdParamSchema),
   validate(updateGallerySchema),
   mediaController.updateGallery
@@ -75,7 +75,7 @@ router.put(
 router.post(
   '/galleries/:id/items/upload',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(galleryIdParamSchema),
   uploadImage.single('image'),
   galleryUploadController.uploadGalleryItem
@@ -84,7 +84,7 @@ router.post(
 router.delete(
   '/galleries/:id/items/:itemId',
   authMiddleware,
-  roleMiddleware('admin', 'super_admin'),
+  adminOnly,
   validate(deleteGalleryItemSchema),
   mediaController.deleteGalleryItem
 );

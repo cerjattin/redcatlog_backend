@@ -1,5 +1,9 @@
 const { AppError } = require('../utils/app-error.util');
+const { hashPassword } = require('../utils/password.util');
 const userRepository = require('../repositories/user.repository');
+const roleRepository = require('../repositories/role.repository');
+
+const SYSTEM_ROLES = ['admin', 'editor'];
 
 const normalizeUser = (user) => {
   if (!user) return null;
@@ -28,12 +32,6 @@ const normalizeUser = (user) => {
           id: user.role.id.toString(),
           name: user.role.name,
           description: user.role.description,
-        }
-      : null,
-    entrepreneur: user.entrepreneur
-      ? {
-          id: user.entrepreneur.id.toString(),
-          status: user.entrepreneur.status,
         }
       : null,
   };
@@ -79,9 +77,55 @@ const updateMe = async (userId, payload) => {
   return normalizeUser(updatedUser);
 };
 
+const createUser = async (payload) => {
+  const roleName = payload.role || 'editor';
+
+  if (!SYSTEM_ROLES.includes(roleName)) {
+    throw new AppError('Solo se pueden crear usuarios con rol admin o editor.', 400);
+  }
+
+  const existingUser = await userRepository.findUserByEmail(payload.email);
+
+  if (existingUser) {
+    throw new AppError('El correo ya está registrado.', 409);
+  }
+
+  const role = await roleRepository.findRoleByName(roleName);
+
+  if (!role) {
+    throw new AppError(`No existe el rol ${roleName}.`, 500);
+  }
+
+  const passwordHash = await hashPassword(payload.password);
+
+  const user = await userRepository.createUser({
+    roleId: role.id,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    email: payload.email,
+    passwordHash,
+    phone: payload.phone || null,
+    whatsapp: payload.whatsapp || null,
+    profilePhotoUrl: payload.profilePhotoUrl || null,
+    bio: payload.bio || null,
+    city: payload.city || null,
+    department: payload.department || null,
+    country: payload.country || 'Colombia',
+    status: payload.status || 'active',
+    forcePasswordChange: true,
+  });
+
+  return normalizeUser(user);
+};
+
 const buildUserWhere = ({ status, role, search }) => {
   const where = {
     deletedAt: null,
+    role: {
+      name: {
+        in: SYSTEM_ROLES,
+      },
+    },
   };
 
   if (status) {
@@ -117,7 +161,7 @@ const buildUserWhere = ({ status, role, search }) => {
   return where;
 };
 
-const listUsers = async (query) => {
+const listUsers = async (query = {}) => {
   const page = Number(query.page || 1);
   const limit = Number(query.limit || 20);
 
@@ -155,6 +199,10 @@ const getUserById = async (id) => {
     throw new AppError('Usuario no encontrado.', 404);
   }
 
+  if (!user.role || !SYSTEM_ROLES.includes(user.role.name)) {
+    throw new AppError('Usuario fuera del alcance administrativo actual.', 404);
+  }
+
   return normalizeUser(user);
 };
 
@@ -176,6 +224,7 @@ const updateUserStatus = async (id, status) => {
 module.exports = {
   getMe,
   updateMe,
+  createUser,
   listUsers,
   getUserById,
   updateUserStatus,

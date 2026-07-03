@@ -73,41 +73,11 @@ const buildTokens = async (user, req) => {
   };
 };
 
-const register = async (payload, req) => {
-  const existingUser = await userRepository.findUserByEmail(payload.email);
-
-  if (existingUser) {
-    throw new AppError('El correo ya está registrado.', 409);
-  }
-
-  const role = await roleRepository.findEntrepreneurRole();
-
-  if (!role) {
-    throw new AppError('No existe rol de emprendedora en la tabla roles.', 500);
-  }
-
-  const passwordHash = await hashPassword(payload.password);
-
-  const user = await userRepository.createUser({
-    roleId: role.id,
-    firstName: payload.firstName,
-    lastName: payload.lastName,
-    email: payload.email,
-    passwordHash,
-    phone: payload.phone || null,
-    whatsapp: payload.whatsapp || null,
-    city: payload.city || null,
-    department: payload.department || null,
-    country: 'Colombia',
-    status: 'pending',
-  });
-
-  const tokens = await buildTokens(user, req);
-
-  return {
-    user: normalizeUser(user),
-    tokens,
-  };
+const register = async () => {
+  throw new AppError(
+    'El registro público fue desactivado. Los usuarios admin/editor deben ser creados por un administrador.',
+    410
+  );
 };
 
 const login = async (payload, req) => {
