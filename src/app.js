@@ -57,7 +57,6 @@ app.use('/api/health', healthRoutes);
 
 app.use('/api/auth', authRateLimiter);
 app.use('/api', apiRateLimiter);
-
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
@@ -69,6 +68,7 @@ app.use('/api/cms', cmsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/admin/dashboard', dashboardRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
