@@ -1,112 +1,158 @@
 const productService = require('../services/product.service');
 const { successResponse } = require('../utils/response.util');
 const { asyncHandler } = require('../utils/async-handler.util');
+const { AppError } = require('../utils/app-error.util');
 
-const createMyProduct = asyncHandler(async (req, res) => {
-  const result = await productService.createMyProduct(req.user.sub, req.validated.body, req);
+const getBody = (req) => req.validated?.body || req.body || {};
+const getQuery = (req) => req.validated?.query || req.query || {};
+const getParams = (req) => req.validated?.params || req.params || {};
+
+const createProduct = asyncHandler(async (req, res) => {
+  const result = await productService.createProduct(getBody(req), req);
+
   return successResponse(res, 'Producto creado correctamente.', result, 201);
 });
 
-const listMyProducts = asyncHandler(async (req, res) => {
-  const result = await productService.listMyProducts(req.user.sub);
-  return successResponse(res, 'Mis productos obtenidos correctamente.', result);
-});
-
-const getMyProductById = asyncHandler(async (req, res) => {
-  const result = await productService.getMyProductById(req.user.sub, req.validated.params.id);
-  return successResponse(res, 'Mi producto obtenido correctamente.', result);
-});
-
-const updateMyProduct = asyncHandler(async (req, res) => {
-  const result = await productService.updateMyProduct(
-    req.user.sub,
-    req.validated.params.id,
-    req.validated.body,
-    req
-  );
-
-  return successResponse(res, 'Producto actualizado correctamente.', result);
-});
-
 const listProducts = asyncHandler(async (req, res) => {
-  const result = await productService.listProducts(req.validated.query);
+  const result = await productService.listProducts(getQuery(req));
+
   return successResponse(res, 'Productos obtenidos correctamente.', result);
 });
 
 const getProductById = asyncHandler(async (req, res) => {
-  const result = await productService.getById(req.validated.params.id);
+  const { id } = getParams(req);
+
+  const result = await productService.getProductById(id);
+
   return successResponse(res, 'Producto obtenido correctamente.', result);
 });
 
+const updateProduct = asyncHandler(async (req, res) => {
+  const { id } = getParams(req);
+
+  const result = await productService.updateProduct(id, getBody(req), req);
+
+  return successResponse(res, 'Producto actualizado correctamente.', result);
+});
+
 const approveProduct = asyncHandler(async (req, res) => {
-  const result = await productService.approve(req.validated.params.id, req.user.sub, req);
+  const { id } = getParams(req);
+
+  const result = await productService.approveProduct(id, req.user.sub);
+
   return successResponse(res, 'Producto aprobado correctamente.', result);
 });
 
 const rejectProduct = asyncHandler(async (req, res) => {
-  const result = await productService.reject(
-    req.validated.params.id,
-    req.user.sub,
-    req.validated.body.rejectionReason,
-    req
-  );
+  const { id } = getParams(req);
+  const { rejectionReason } = getBody(req);
+
+  const result = await productService.rejectProduct(id, rejectionReason);
 
   return successResponse(res, 'Producto rechazado correctamente.', result);
 });
 
 const updateProductStatus = asyncHandler(async (req, res) => {
-  const result = await productService.updateStatus(
-    req.validated.params.id,
-    req.validated.body.status,
-    req.user.sub,
-    req
-  );
+  const { id } = getParams(req);
+  const { status } = getBody(req);
+
+  const result = await productService.updateProductStatus(id, status);
 
   return successResponse(res, 'Estado de producto actualizado correctamente.', result);
 });
 
+const updateProductFeatured = asyncHandler(async (req, res) => {
+  const { id } = getParams(req);
+
+  const result = await productService.updateProductFeatured(id, getBody(req));
+
+  return successResponse(res, 'Producto destacado actualizado correctamente.', result);
+});
+
 const addProductImage = asyncHandler(async (req, res) => {
-  const result = await productService.addImage(
-    req.user.sub,
-    req.validated.params.id,
-    req.validated.body
-  );
+  const { id } = getParams(req);
+
+  const result = await productService.addProductImage(id, getBody(req));
 
   return successResponse(res, 'Imagen de producto agregada correctamente.', result, 201);
 });
 
-const deleteProductImage = asyncHandler(async (req, res) => {
-  await productService.deleteImage(
-    req.user.sub,
-    req.validated.params.id,
-    req.validated.params.imageId
-  );
+const uploadProductImage = asyncHandler(async (req, res) => {
+  const { id } = getParams(req);
 
-  return successResponse(res, 'Imagen de producto eliminada correctamente.');
+  const result = await productService.uploadProductImage(id, req.file, getBody(req));
+
+  return successResponse(res, 'Imagen de producto subida correctamente.', result, 201);
+});
+
+const setMainProductImage = asyncHandler(async (req, res) => {
+  const { id, imageId } = getParams(req);
+
+  const result = await productService.setMainProductImage(id, imageId);
+
+  return successResponse(res, 'Imagen principal actualizada correctamente.', result);
+});
+
+const deleteProductImage = asyncHandler(async (req, res) => {
+  const { id, imageId } = getParams(req);
+
+  const result = await productService.deleteProductImage(id, imageId);
+
+  return successResponse(res, 'Imagen de producto eliminada correctamente.', result);
 });
 
 const listPublicProducts = asyncHandler(async (req, res) => {
-  const result = await productService.listPublicProducts(req.query);
+  const result = await productService.listPublicProducts(getQuery(req));
+
   return successResponse(res, 'Productos públicos obtenidos correctamente.', result);
 });
 
 const getPublicProductBySlug = asyncHandler(async (req, res) => {
-  const result = await productService.getPublicProductBySlug(req.params.slug);
+  const { slug } = getParams(req);
+
+  const result = await productService.getPublicProductBySlug(slug);
+
   return successResponse(res, 'Producto público obtenido correctamente.', result);
 });
 
+/**
+ * Legacy handlers.
+ * Estos métodos existían cuando la emprendedora administraba sus propios productos.
+ * En la nueva lógica REDMUEMMA solo admin/editor gestionan productos.
+ * Se dejan temporalmente para evitar errores de importación mientras se ajustan rutas.
+ */
+const legacyMyProductsDisabled = asyncHandler(async () => {
+  throw new AppError(
+    'Este endpoint fue desactivado. En REDMUEMMA los productos son gestionados por admin/editor y pertenecen directamente a una emprendedora.',
+    410
+  );
+});
+
+const createMyProduct = legacyMyProductsDisabled;
+const listMyProducts = legacyMyProductsDisabled;
+const getMyProductById = legacyMyProductsDisabled;
+const updateMyProduct = legacyMyProductsDisabled;
+
 module.exports = {
+  createProduct,
+  listProducts,
+  getProductById,
+  updateProduct,
+  approveProduct,
+  rejectProduct,
+  updateProductStatus,
+  updateProductFeatured,
+  addProductImage,
+  uploadProductImage,
+  setMainProductImage,
+  deleteProductImage,
+
+  listPublicProducts,
+  getPublicProductBySlug,
+
+  // Legacy temporal
   createMyProduct,
   listMyProducts,
   getMyProductById,
   updateMyProduct,
-  listProducts,
-  getProductById,
-  approveProduct,
-  rejectProduct,
-  updateProductStatus,
-  addProductImage,
-  deleteProductImage,
-  listPublicProducts,
-  getPublicProductBySlug,
 };

@@ -6,10 +6,24 @@ const baseInclude = {
       role: true,
     },
   },
+
+  category: true,
+
   approvedByUser: true,
-  businesses: {
+
+  products: {
     orderBy: {
       createdAt: 'desc',
+    },
+    include: {
+      category: true,
+      images: {
+        orderBy: [
+          { isMain: 'desc' },
+          { sortOrder: 'asc' },
+          { id: 'asc' },
+        ],
+      },
     },
   },
 };
@@ -27,6 +41,15 @@ const findEntrepreneurByUserId = async (userId) => {
   return prisma.entrepreneur.findFirst({
     where: {
       userId: BigInt(userId),
+    },
+    include: baseInclude,
+  });
+};
+
+const findEntrepreneurBySlug = async (slug) => {
+  return prisma.entrepreneur.findUnique({
+    where: {
+      slug,
     },
     include: baseInclude,
   });
@@ -70,6 +93,7 @@ const countEntrepreneurs = async (where) => {
 module.exports = {
   findEntrepreneurByUserId,
   findEntrepreneurById,
+  findEntrepreneurBySlug,
   createEntrepreneur,
   updateEntrepreneurById,
   listEntrepreneurs,

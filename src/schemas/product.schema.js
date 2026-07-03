@@ -1,121 +1,266 @@
 const { z } = require('zod');
 
+const idSchema = z.string().regex(/^\d+$/, {
+  message: 'El identificador debe ser numérico.',
+});
+
+const productStatusSchema = z.enum([
+  'draft',
+  'pending_review',
+  'approved',
+  'published',
+  'rejected',
+  'inactive',
+  'archived',
+]);
+
 const createProductSchema = z.object({
   body: z.object({
-    businessId: z.string().regex(/^\d+$/),
-    categoryId: z.string().regex(/^\d+$/).nullable().optional(),
-    name: z.string().min(3).max(160),
+    entrepreneurId: idSchema,
+
+    categoryId: idSchema.optional().nullable(),
+
+    name: z
+      .string()
+      .trim()
+      .min(2, 'El nombre del producto es obligatorio.')
+      .max(160, 'El nombre no puede superar 160 caracteres.'),
+
     slug: z
       .string()
-      .min(3)
+      .trim()
+      .min(2)
       .max(180)
-      .regex(/^[a-z0-9-]+$/),
-    shortDescription: z.string().max(500).nullable().optional(),
-    description: z.string().nullable().optional(),
-    price: z.number().nullable().optional(),
-    hasPrice: z.boolean().optional(),
-    stock: z.number().int().nullable().optional(),
-    managesStock: z.boolean().optional(),
+      .optional(),
+
+    shortDescription: z
+      .string()
+      .trim()
+      .max(500)
+      .optional()
+      .nullable(),
+
+    description: z
+      .string()
+      .trim()
+      .optional()
+      .nullable(),
+
+    price: z
+      .union([z.string(), z.number()])
+      .optional()
+      .nullable(),
+
+    hasPrice: z
+      .boolean()
+      .optional(),
+
+    stock: z
+      .union([z.string(), z.number()])
+      .optional()
+      .nullable(),
+
+    managesStock: z
+      .boolean()
+      .optional(),
+
+    status: productStatusSchema.optional(),
+
+    isFeatured: z
+      .boolean()
+      .optional(),
+
+    featuredOrder: z
+      .union([z.string(), z.number()])
+      .optional()
+      .nullable(),
   }),
 });
 
 const updateProductSchema = z.object({
-  body: createProductSchema.shape.body.partial().extend({
-    status: z
-      .enum([
-        'draft',
-        'pending_review',
-        'approved',
-        'published',
-        'rejected',
-        'inactive',
-        'archived',
-      ])
-      .optional(),
+  params: z.object({
+    id: idSchema,
   }),
-});
+  body: z.object({
+    entrepreneurId: idSchema.optional(),
 
-const listProductsSchema = z.object({
-  query: z.object({
-    page: z.string().optional(),
-    limit: z.string().optional(),
-    status: z.string().optional(),
-    businessId: z.string().optional(),
-    categoryId: z.string().optional(),
-    search: z.string().optional(),
+    categoryId: idSchema.optional().nullable(),
+
+    name: z
+      .string()
+      .trim()
+      .min(2)
+      .max(160)
+      .optional(),
+
+    slug: z
+      .string()
+      .trim()
+      .min(2)
+      .max(180)
+      .optional(),
+
+    shortDescription: z
+      .string()
+      .trim()
+      .max(500)
+      .optional()
+      .nullable(),
+
+    description: z
+      .string()
+      .trim()
+      .optional()
+      .nullable(),
+
+    price: z
+      .union([z.string(), z.number()])
+      .optional()
+      .nullable(),
+
+    hasPrice: z
+      .boolean()
+      .optional(),
+
+    stock: z
+      .union([z.string(), z.number()])
+      .optional()
+      .nullable(),
+
+    managesStock: z
+      .boolean()
+      .optional(),
+
+    status: productStatusSchema.optional(),
+
+    isFeatured: z
+      .boolean()
+      .optional(),
+
+    featuredOrder: z
+      .union([z.string(), z.number()])
+      .optional()
+      .nullable(),
   }),
 });
 
 const productIdParamSchema = z.object({
   params: z.object({
-    id: z.string().regex(/^\d+$/, 'El id debe ser numérico.'),
+    id: idSchema,
   }),
 });
 
 const productSlugParamSchema = z.object({
   params: z.object({
-    slug: z.string(),
+    slug: z.string().trim().min(2),
   }),
 });
 
-const rejectProductSchema = z.object({
-  params: z.object({
-    id: z.string().regex(/^\d+$/),
-  }),
-  body: z.object({
-    rejectionReason: z.string().min(3),
+const listProductsQuerySchema = z.object({
+  query: z.object({
+    page: z
+      .string()
+      .regex(/^\d+$/)
+      .optional(),
+
+    limit: z
+      .string()
+      .regex(/^\d+$/)
+      .optional(),
+
+    status: productStatusSchema.optional(),
+
+    entrepreneurId: idSchema.optional(),
+
+    categoryId: idSchema.optional(),
+
+    search: z.string().trim().optional(),
+
+    isFeatured: z
+      .enum(['true', 'false'])
+      .optional(),
   }),
 });
 
 const updateProductStatusSchema = z.object({
   params: z.object({
-    id: z.string().regex(/^\d+$/),
+    id: idSchema,
   }),
   body: z.object({
-    status: z.enum([
-      'draft',
-      'pending_review',
-      'approved',
-      'published',
-      'rejected',
-      'inactive',
-      'archived',
-    ]),
+    status: productStatusSchema,
+  }),
+});
+
+const rejectProductSchema = z.object({
+  params: z.object({
+    id: idSchema,
+  }),
+  body: z.object({
+    rejectionReason: z
+      .string()
+      .trim()
+      .min(3, 'Debes indicar el motivo del rechazo.')
+      .max(1000),
+  }),
+});
+
+const updateFeaturedProductSchema = z.object({
+  params: z.object({
+    id: idSchema,
+  }),
+  body: z.object({
+    isFeatured: z.boolean(),
+    featuredOrder: z
+      .union([z.string(), z.number()])
+      .optional()
+      .nullable(),
+  }),
+});
+
+const productImageIdParamSchema = z.object({
+  params: z.object({
+    id: idSchema,
+    imageId: idSchema,
   }),
 });
 
 const addProductImageSchema = z.object({
   params: z.object({
-    id: z.string().regex(/^\d+$/),
+    id: idSchema,
   }),
-
   body: z.object({
-    imageUrl: z.string().min(3),
+    imageUrl: z
+      .string()
+      .trim()
+      .min(3, 'La URL de la imagen es obligatoria.'),
 
-    altText: z.string().max(180).nullable().optional(),
+    altText: z
+      .string()
+      .trim()
+      .max(180)
+      .optional()
+      .nullable(),
 
-    sortOrder: z.number().int().optional(),
+    sortOrder: z
+      .union([z.string(), z.number()])
+      .optional()
+      .nullable(),
 
-    isMain: z.boolean().optional(),
-  }),
-});
-
-const deleteProductImageSchema = z.object({
-  params: z.object({
-    id: z.string().regex(/^\d+$/),
-
-    imageId: z.string().regex(/^\d+$/),
+    isMain: z
+      .boolean()
+      .optional(),
   }),
 });
 
 module.exports = {
   createProductSchema,
   updateProductSchema,
-  listProductsSchema,
   productIdParamSchema,
   productSlugParamSchema,
-  rejectProductSchema,
+  listProductsQuerySchema,
   updateProductStatusSchema,
+  rejectProductSchema,
+  updateFeaturedProductSchema,
   addProductImageSchema,
-  deleteProductImageSchema,
+  productImageIdParamSchema,
 };

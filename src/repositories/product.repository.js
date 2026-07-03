@@ -1,13 +1,14 @@
 const { prisma } = require('../config/prisma');
 
 const baseInclude = {
-  business: {
+  entrepreneur: {
     include: {
-      entrepreneur: {
+      user: {
         include: {
-          user: true,
+          role: true,
         },
       },
+      category: true,
     },
   },
 
@@ -15,7 +16,13 @@ const baseInclude = {
 
   approvedByUser: true,
 
-  images: true,
+  images: {
+    orderBy: [
+      { isMain: 'desc' },
+      { sortOrder: 'asc' },
+      { id: 'asc' },
+    ],
+  },
 };
 
 const findProductById = async (id) => {
@@ -53,16 +60,14 @@ const updateProductById = async (id, data) => {
   });
 };
 
-const listProducts = async ({ skip, take, where }) => {
+const listProducts = async ({ skip, take, where, orderBy }) => {
   return prisma.product.findMany({
     where,
     skip,
     take,
-
-    orderBy: {
+    orderBy: orderBy || {
       createdAt: 'desc',
     },
-
     include: baseInclude,
   });
 };
@@ -87,7 +92,16 @@ const findProductImageById = async (imageId) => {
   });
 };
 
-const deleteProductImage = async (imageId) => {
+const updateProductImageById = async (imageId, data) => {
+  return prisma.productImage.update({
+    where: {
+      id: BigInt(imageId),
+    },
+    data,
+  });
+};
+
+const deleteProductImageById = async (imageId) => {
   return prisma.productImage.delete({
     where: {
       id: BigInt(imageId),
@@ -95,7 +109,40 @@ const deleteProductImage = async (imageId) => {
   });
 };
 
+const unsetMainImages = async (productId) => {
+  return prisma.productImage.updateMany({
+    where: {
+      productId: BigInt(productId),
+    },
+    data: {
+      isMain: false,
+    },
+  });
+};
+
+const countProductImages = async (productId) => {
+  return prisma.productImage.count({
+    where: {
+      productId: BigInt(productId),
+    },
+  });
+};
+
+const getNextImageSortOrder = async (productId) => {
+  const lastImage = await prisma.productImage.findFirst({
+    where: {
+      productId: BigInt(productId),
+    },
+    orderBy: {
+      sortOrder: 'desc',
+    },
+  });
+
+  return lastImage ? lastImage.sortOrder + 1 : 1;
+};
+
 module.exports = {
+  baseInclude,
   findProductById,
   findProductBySlug,
   createProduct,
@@ -104,5 +151,9 @@ module.exports = {
   countProducts,
   createProductImage,
   findProductImageById,
-  deleteProductImage,
+  updateProductImageById,
+  deleteProductImageById,
+  unsetMainImages,
+  countProductImages,
+  getNextImageSortOrder,
 };
