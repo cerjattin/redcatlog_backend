@@ -31,6 +31,7 @@ const { errorMiddleware } = require('./middlewares/error.middleware');
 
 const app = express();
 
+app.set('trust proxy', 1);
 app.use(helmetMiddleware);
 app.use(compressionMiddleware);
 app.use(hppMiddleware);
